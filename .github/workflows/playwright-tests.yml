@@ -21,7 +21,7 @@ jobs:
     - name: Ensure browsers are installed
       run: python -m playwright install --with-deps
     - name: Run your tests
-      run: pytest --tracing=retain-on-failure
+      run: xvfb-run --auto-servernum pytest -vv --tracing=retain-on-failure
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:
