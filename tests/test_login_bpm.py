@@ -11,6 +11,7 @@ class TestLoginOnline(TestBaseOnline):
     def test_log_in_online_with_lupa(self):
         expected_url = "https://bpholter.stage.bio-beat.cloud/session-management"
         page: LogInOnline = self.browser_online.navigate(configuration['online_url'], LogInOnline)
+        page.wait_for_login_form()
         page.enter_username("pini.mari@bio-beat.com")
         page.enter_password("Pm123456!")
         page.click_login_button()

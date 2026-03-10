@@ -34,6 +34,7 @@ class BrowserOnline:
         return new_popup(self.popup)
 
     def stop_trace(self):
-        self.context.tracing.stop(path="trace.zip")
+        os.makedirs("test-results", exist_ok=True)
+        self.context.tracing.stop(path="test-results/trace.zip")
 
 
