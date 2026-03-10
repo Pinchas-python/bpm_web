@@ -30,12 +30,18 @@ jobs:
       - name: Run tests
         env:
           CI: "true"
-        run: pytest -vv --tracing=retain-on-failure
+        run: |
+          mkdir -p test-results
+          pytest -vv --tracing=retain-on-failure \
+            --junitxml=test-results/junit.xml \
+            --html=test-results/pytest-report.html \
+            --self-contained-html
 
-      - name: Upload traces
+      - name: Upload test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-traces
-          path: test-results/
+          name: test-reports
+          path: |
+            test-results/
           if-no-files-found: warn
