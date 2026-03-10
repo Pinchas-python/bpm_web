@@ -16,8 +16,8 @@ class BrowserOnline:
 
         playwright = sync_playwright().start()
         Desktop = playwright.devices['Desktop Chrome HiDPI']
-        headless_mode = os.getenv("CI", "").lower() == "true"
-        self.browser = playwright.chromium.launch(headless=headless_mode)
+        #headless_mode = os.getenv("CI", "").lower() == "true"
+        self.browser = playwright.chromium.launch(headless=False)
         self.context = self.browser.new_context(**Desktop,)
         self.context.tracing.start(screenshots=True, snapshots=True)
         self.page = self.context.new_page()
