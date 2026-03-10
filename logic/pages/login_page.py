@@ -1,7 +1,4 @@
 from infra.page_base import PageBase
-import time
-import json
-from playwright.sync_api import expect
 
 
 
@@ -26,7 +23,7 @@ class LogInOnline(PageBase):
         try:
             self.navigate_to(base_url)
             # Wait for page to be ready
-            self.page.wait_for_load_state("networkidle", timeout=10000)
+            self.pw_page.wait_for_load_state("networkidle", timeout=10000)
         except Exception as e:
             print(f"Navigation warning: {e}")
             # Try to continue anyway

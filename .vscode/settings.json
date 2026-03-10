@@ -8,7 +8,7 @@
         "--tb=short",
         "--color=yes"
     ],
-    "python.testing.autoTestDiscoverOnSaveEnabled": true,
+    "python.testing.autoTestDiscoverOnSaveEnabled": false,
     "python.testing.promptToConfigure": false,
     "python.testing.cwd": "${workspaceFolder}",
     

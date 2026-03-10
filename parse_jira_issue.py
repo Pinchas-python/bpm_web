@@ -1,8 +1,7 @@
 import json
-import os
 
-issue_data= open('issueData.json')
-json_data = json.load(issue_data)
+with open('issueData.json', encoding='utf-8') as issue_data:
+    json_data = json.load(issue_data)
 linked_issues = json_data["fields"]["issuelinks"]
 linked_ids = []
 for issue in linked_issues:
