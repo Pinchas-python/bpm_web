@@ -27,17 +27,23 @@ jobs:
       - name: Install Playwright browsers
         run: python -m playwright install --with-deps
 
-      - name: Run tests
-        env:
-          CI: "true"
+      - name: Run tests with Xvfb
         run: |
-          mkdir -p test-results
-          pytest -vv --tracing=retain-on-failure --junitxml=test-results/junit.xml --html=test-results/pytest-report.html --self-contained-html
+          mkdir -p allure-results
+          Xvfb :99 -screen 0 1280x720x24 &
+          export DISPLAY=:99
+          pytest -vv \
+            --alluredir=allure-results \
+            --tracing=retain-on-failure \
+            --video=retain-on-failure \
+            --screenshot=only-on-failure
 
-      - name: Upload test reports
+      - name: Upload test artifacts
         if: ${{ always() && !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: test-reports
-          path: test-results/
+          name: test-artifacts
+          path: |
+            allure-results/
+            test-results/
           if-no-files-found: warn
