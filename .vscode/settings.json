@@ -1,0 +1,46 @@
+{
+    // Python Testing Configuration
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestArgs": [
+        "tests",
+        "-v",
+        "--tb=short",
+        "--color=yes"
+    ],
+    "python.testing.autoTestDiscoverOnSaveEnabled": true,
+    "python.testing.promptToConfigure": false,
+    "python.testing.cwd": "${workspaceFolder}",
+    
+    // Python Language Server
+    "python.languageServer": "Pylance",
+    
+    // Editor Settings for Test Files
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}",
+        "${workspaceFolder}/pages",
+        "${workspaceFolder}/config",
+        "${workspaceFolder}/tests"
+    ],
+    
+    // Terminal Settings
+    "terminal.integrated.env.windows": {
+        "PYTHONPATH": "${workspaceFolder}"
+    },
+    "terminal.integrated.env.linux": {
+        "PYTHONPATH": "${workspaceFolder}"
+    },
+    "terminal.integrated.env.osx": {
+        "PYTHONPATH": "${workspaceFolder}"
+    },
+    
+    // File Associations
+    "files.associations": {
+        "pytest.ini": "ini",
+        ".env": "plaintext"
+    },
+    
+    // Auto Save
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 1000
+}

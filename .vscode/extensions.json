@@ -1,0 +1,6 @@
+# VS Code Extensions Recommendations
+# Install these extensions for the best experience
+
+ms-python.python                 # Python support
+ms-python.vscode-pylance         # Python language server
+ms-python.debugpy                # Python debugger
