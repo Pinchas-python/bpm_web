@@ -32,16 +32,12 @@ jobs:
           CI: "true"
         run: |
           mkdir -p test-results
-          pytest -vv --tracing=retain-on-failure \
-            --junitxml=test-results/junit.xml \
-            --html=test-results/pytest-report.html \
-            --self-contained-html
+          pytest -vv --tracing=retain-on-failure --junitxml=test-results/junit.xml --html=test-results/pytest-report.html --self-contained-html
 
       - name: Upload test reports
-        if: ${{ !cancelled() }}
+        if: ${{ always() && !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: test-reports
-          path: |
-            test-results/
+          path: test-results/
           if-no-files-found: warn
