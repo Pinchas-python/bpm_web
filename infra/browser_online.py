@@ -1,8 +1,7 @@
 from typing import Type
+import os
 from playwright.sync_api import sync_playwright
 from infra.page_base import PageBase
-
-import os
 
 
 
@@ -17,7 +16,8 @@ class BrowserOnline:
 
         playwright = sync_playwright().start()
         Desktop = playwright.devices['Desktop Chrome HiDPI']
-        self.browser = playwright.chromium.launch(headless=os.getenv("CI", "false").lower() == "true")
+        headless_mode = os.getenv("CI", "").lower() == "true"
+        self.browser = playwright.chromium.launch(headless=headless_mode)
         self.context = self.browser.new_context(**Desktop,)
         self.context.tracing.start(screenshots=True, snapshots=True)
         self.page = self.context.new_page()
