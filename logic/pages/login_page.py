@@ -31,11 +31,19 @@ class LogInOnline(PageBase):
     
     def enter_username(self, username: str):
         """Enter username in the username field"""
-        self.pw_page.fill(self.USERNAME_INPUT, username)
+        locator = self.pw_page.locator(
+            "input[type='email'], input[name='email'], input[placeholder='Email']"
+        ).first
+        locator.wait_for(state="visible", timeout=10000)
+        locator.fill(username)
     
     def enter_password(self, password: str):
         """Enter password in the password field"""
-        self.pw_page.fill(self.PASSWORD_INPUT, password)
+        locator = self.pw_page.locator(
+            "input[type='password'], input[name='password'], input[placeholder='Password']"
+        ).first
+        locator.wait_for(state="visible", timeout=10000)
+        locator.fill(password)
 
     def login(self, username: str, password: str):
         """Complete login flow"""
