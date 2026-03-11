@@ -8,7 +8,7 @@ class TestLoginOnline(TestBaseOnline):
 
     @pytest.mark.smoke
     @pytest.mark.usefixtures("before_after_test")
-    def test_log_in_online_with_lupa(self):
+    def test_log_in_with_user(self):
         expected_url = "https://bpholter.stage.bio-beat.cloud/session-management"
         page: LogInOnline = self.browser_online.navigate(configuration['online_url'], LogInOnline)
         page.enter_username("pini.mari@bio-beat.com")
