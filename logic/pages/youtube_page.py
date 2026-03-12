@@ -11,6 +11,5 @@ class YTPage(PageBase):
     def click_side_menu(self):
         self.wait_for_visible(self.side_menu)
         self.pw_page.click(selector=self.side_menu)
-        self.pw_page.wait_for_timeout(200000)
 
 
