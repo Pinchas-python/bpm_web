@@ -1,6 +1,5 @@
 # Use Playwright Docker image
-FROM mcr.microsoft.com/playwright/python:v1.42.0-jammy
-
+FROM mcr.microsoft.com/playwright/python:v1.58.0-noble
 # Set the working directory inside the container
 WORKDIR /app
 
