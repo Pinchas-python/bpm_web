@@ -7,19 +7,19 @@ from infra.page_base import PageBase
 
 
 class BrowserOnline:
+    playwright = None
     browser = None
     context = None
     page = None
     popup = None
 
     def __init__(self):
-
-        playwright = sync_playwright().start()
-        Desktop = playwright.devices['Desktop Chrome HiDPI']
+        self.playwright = sync_playwright().start()
+        Desktop = self.playwright.devices['Desktop Chrome HiDPI']
         ci_env = os.getenv("CI", "").strip().lower()
         gh_actions = os.getenv("GITHUB_ACTIONS", "").strip().lower()
         headless_mode = ci_env in ("1", "true", "yes") or gh_actions == "true"
-        self.browser = playwright.chromium.launch(headless=headless_mode)
+        self.browser = self.playwright.chromium.launch(headless=headless_mode)
         self.context = self.browser.new_context(**Desktop,)
         self.context.tracing.start(screenshots=True, snapshots=True)
         self.page = self.context.new_page()
@@ -38,5 +38,24 @@ class BrowserOnline:
     def stop_trace(self):
         os.makedirs("test-results", exist_ok=True)
         self.context.tracing.stop(path="test-results/trace.zip")
+
+    def close(self):
+        try:
+            if self.context:
+                self.context.close()
+        except Exception:
+            pass
+
+        try:
+            if self.browser:
+                self.browser.close()
+        except Exception:
+            pass
+
+        try:
+            if self.playwright:
+                self.playwright.stop()
+        except Exception:
+            pass
 
 

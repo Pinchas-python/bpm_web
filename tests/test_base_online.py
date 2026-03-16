@@ -24,6 +24,10 @@ class TestBaseOnline():
             except:
                 pass
         self.tear_down_invoke()
+        try:
+            self.browser_online.close()
+        except:
+            pass
         print('\r*****DONE*****')
 
     def tear_down_invoke(self):
