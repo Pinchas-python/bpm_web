@@ -18,22 +18,9 @@ class BrowserOnline:
         Desktop = self.playwright.devices['Desktop Chrome HiDPI']
         ci_env = os.getenv("CI", "").strip().lower()
         gh_actions = os.getenv("GITHUB_ACTIONS", "").strip().lower()
-        ci_mode = ci_env in ("1", "true", "yes") or gh_actions == "true"
-        headless_mode = ci_mode
-
-        launch_options = {
-            "headless": headless_mode,
-        }
-        if ci_mode:
-            launch_options["args"] = ["--no-sandbox", "--disable-dev-shm-usage"]
-
-        self.browser = self.playwright.chromium.launch(**launch_options)
-
-        context_options = {
-            **Desktop,
-            "ignore_https_errors": ci_mode,
-        }
-        self.context = self.browser.new_context(**context_options)
+        headless_mode = ci_env in ("1", "true", "yes") or gh_actions == "true"
+        self.browser = self.playwright.chromium.launch(headless=headless_mode)
+        self.context = self.browser.new_context(**Desktop,)
         self.context.tracing.start(screenshots=True, snapshots=True)
         self.page = self.context.new_page()
 
