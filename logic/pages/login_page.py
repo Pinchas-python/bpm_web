@@ -1,4 +1,5 @@
 from infra.page_base import PageBase
+import re
 
 
 
@@ -61,11 +62,16 @@ class LogInOnline(PageBase):
         self.click_login_button()
 
     def verify_error_message(self, expected_message: str):
-        expected_message = expected_message.strip().lower()
+        expected_message = self._normalize_text(expected_message)
+        if not expected_message:
+            return False
 
         try:
-            if self.pw_page.get_by_text(expected_message, exact=False).first.is_visible(timeout=2000):
-                return True
+            matched_locator = self.pw_page.get_by_text(expected_message, exact=False).first
+            if matched_locator.is_visible(timeout=2000):
+                matched_text = self._normalize_text(matched_locator.text_content() or "")
+                if matched_text == expected_message:
+                    return True
         except Exception:
             pass
 
@@ -73,15 +79,15 @@ class LogInOnline(PageBase):
         password_input = self.pw_page.locator(self.PASSWORD_INPUT).first
 
         try:
-            email_validation = (email_input.evaluate("el => el.validationMessage") or "").strip().lower()
-            if expected_message in email_validation:
+            email_validation = self._normalize_text(email_input.evaluate("el => el.validationMessage") or "")
+            if expected_message == email_validation:
                 return True
         except Exception:
             pass
 
         try:
-            password_validation = (password_input.evaluate("el => el.validationMessage") or "").strip().lower()
-            if expected_message in password_validation:
+            password_validation = self._normalize_text(password_input.evaluate("el => el.validationMessage") or "")
+            if expected_message == password_validation:
                 return True
         except Exception:
             pass
@@ -95,6 +101,11 @@ class LogInOnline(PageBase):
                 return False
 
         return False
+
+    def _normalize_text(self, value: str):
+        text = (value or "").strip().lower()
+        text = re.sub(r"[^a-z0-9\s]", "", text)
+        return " ".join(text.split())
 
     def verify_email_marked_red(self):
         return self._is_field_marked_as_error(self.pw_page.locator(self.EMAIL_INPUT).first)
