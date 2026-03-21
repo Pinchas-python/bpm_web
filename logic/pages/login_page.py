@@ -1,5 +1,6 @@
 from infra.page_base import PageBase
 import re
+from logic.pages.forgot_password_page import ForgotPasswordPage
 
 
 
@@ -28,6 +29,10 @@ class LogInOnline(PageBase):
     
     def click_login_button(self):
         self.pw_page.click(self.LOGIN_BUTTON)
+
+    def open_forgot_password(self):
+        self.pw_page.get_by_role("button", name="Forgot your password?", exact=True).click()
+        return ForgotPasswordPage(self.pw_page)
 
     def verify_login_page_opened(self):
         try:
