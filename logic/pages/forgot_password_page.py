@@ -1,4 +1,5 @@
 from infra.page_base import PageBase
+import re
 
 
 class ForgotPasswordPage(PageBase):
@@ -11,6 +12,7 @@ class ForgotPasswordPage(PageBase):
     NEW_PASSWORD_INPUT = "input[placeholder='New Password']"
     CONFIRM_PASSWORD_INPUT = "input[placeholder='Confirm New Password']"
     CHANGE_PASSWORD_BUTTON = "//button[text()='Reset Password']"
+    EMAIL_ERROR = "text=/email is required|please enter a valid email address|invalid email/i"
 
     def verify_forgot_password_page_opened(self):
         try:
@@ -43,3 +45,64 @@ class ForgotPasswordPage(PageBase):
             return True
         except Exception:
             return False
+
+    def verify_email_error_message(self, expected_message: str):
+        expected_message = self._normalize_text(expected_message)
+        if not expected_message:
+            return False
+
+        email_input = self.pw_page.locator(self.EMAIL_INPUT).first
+
+        try:
+            exact_error = self.pw_page.get_by_text(expected_message, exact=False).first
+            if exact_error.is_visible(timeout=2000):
+                exact_text = self._normalize_text(exact_error.text_content() or "")
+                if exact_text == expected_message:
+                    return True
+        except Exception:
+            pass
+
+        try:
+            ui_error = self.pw_page.locator(self.EMAIL_ERROR).first
+            if ui_error.is_visible(timeout=2000):
+                ui_text = self._normalize_text(ui_error.text_content() or "")
+                if expected_message == ui_text:
+                    return True
+        except Exception:
+            pass
+
+        try:
+            validation_message = self._normalize_text(email_input.evaluate("el => el.validationMessage") or "")
+            if expected_message == validation_message:
+                return True
+        except Exception:
+            pass
+
+        return False
+
+    def verify_email_marked_red(self):
+        email_input = self.pw_page.locator(self.EMAIL_INPUT).first
+
+        try:
+            if email_input.get_attribute("aria-invalid") == "true":
+                return True
+        except Exception:
+            pass
+
+        try:
+            class_name = (email_input.get_attribute("class") or "").lower()
+            if "error" in class_name or "invalid" in class_name:
+                return True
+        except Exception:
+            pass
+
+        try:
+            border_color = (email_input.evaluate("el => getComputedStyle(el).borderColor") or "").lower()
+            return "255, 0, 0" in border_color or "220, 38, 38" in border_color or "red" in border_color
+        except Exception:
+            return False
+
+    def _normalize_text(self, value: str):
+        text = (value or "").strip().lower()
+        text = re.sub(r"[^a-z0-9\s]", "", text)
+        return " ".join(text.split())
