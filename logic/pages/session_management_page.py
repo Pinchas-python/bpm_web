@@ -1,4 +1,5 @@
 from infra.page_base import PageBase
+from logic.pages.patient_admission_page import PatientAdmissionPage
 
 
 class SessionManagementPage(PageBase):
@@ -34,29 +35,6 @@ class SessionManagementPage(PageBase):
     START_TIME_HEADER = "text=Start Time"
     STATUS_HEADER = "text=Status"
     REMAINING_HEADER = "text=Remaining"
-
-    # Patient admission form fields
-    PATIENT_ID_INPUT = (
-        "input[name*='patient_id']"
-    )
-    DEVICE_ID_INPUT = (
-        "input[name*='device_id']"
-    )
-    FIRST_NAME_INPUT = (
-        "//span[normalize-space()='First Name (Optional)']"
-    )
-    LAST_NAME_INPUT = (
-        "//span[normalize-space()='Last Name (Optional)']"
-    )
-    CONFIRM_BUTTON = (
-        "//span[normalize-space()='Date of Birth (Optional)']"
-    )
-
-    # Additional common admission locators for future test steps
-    DOB_INPUT = "input[placeholder*='Date'], input[name*='birth'], input[name*='dob']"
-    GENDER_DROPDOWN = "[role='combobox']:has-text('Gender'), select[name*='gender']"
-    PHONE_INPUT = "input[placeholder*='Phone'], input[name*='phone']"
-    EMAIL_INPUT = "input[placeholder*='Email'], input[name*='email']"
 
     def verify_session_management_page_opened(self):
         try:
@@ -101,16 +79,7 @@ class SessionManagementPage(PageBase):
 
     def open_patient_admission(self):
         self._click_any_visible([self.PATIENT_ADMISSION_NAV], timeout=10000)
-
-    def verify_patient_admission_form_opened(self):
-        try:
-            self._wait_any_visible([self.PATIENT_ID_INPUT], timeout=10000)
-            self._wait_any_visible([self.FIRST_NAME_INPUT], timeout=10000)
-            self._wait_any_visible([self.LAST_NAME_INPUT], timeout=10000)
-            self._wait_any_visible([self.CONFIRM_BUTTON], timeout=10000)
-            return True
-        except Exception:
-            return False
+        return PatientAdmissionPage(self.pw_page)
 
     def _wait_any_visible(self, selectors, timeout=6000):
         if isinstance(selectors, str):

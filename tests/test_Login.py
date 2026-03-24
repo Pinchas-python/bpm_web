@@ -20,7 +20,7 @@ class TestLoginOnline(TestBaseOnline):
     @pytest.mark.usefixtures("before_after_test")
     def test_Login_with_valid_credentials_santy(self):  
         page: LogInOnline = self.browser_online.navigate(configuration['online_url'], LogInOnline)
-        page.login("pini.mari@bio-beat.com","Pm123456!")
+        page.login("pinimari1@gmail.com","Pm1234567!")
         page.pw_page.wait_for_url(expected_url, timeout=15000)
         assert page.pw_page.url == expected_url, (
             f"Expected URL '{expected_url}', but got '{page.pw_page.url}'"
