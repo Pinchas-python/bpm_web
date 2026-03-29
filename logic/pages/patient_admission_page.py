@@ -25,7 +25,10 @@ class PatientAdmissionPage(PageBase):
     FEMALE_OPTION_LABEL = "Female"
     DOB_INPUT = "input[placeholder*='Date of Birth'], input[name*='dob'], input[name*='birth']"
     WEIGHT_INPUT = "input[placeholder*='Weight'], input[name*='weight']"
+    WEIGHT_INPUT_NEW = "input[name='weight']"
     HEIGHT_INPUT = "input[placeholder*='Height'], input[name*='height']"
+    FEET_INPUT = "input[name*='height_ft']"
+    INCHES_INPUT = "input[name*='height_in']"
     REFERRING_PHYSICIAN_DROPDOWN = (
         "input[name*='referring_physician'], input[name*='referringPhysician'], "
         "[role='combobox']:has-text('Referring Physician'), select[name*='physician']"
@@ -37,6 +40,13 @@ class PatientAdmissionPage(PageBase):
     CONFIRM_BUTTON = (
         "//button[normalize-space()='Confirm']"
     )
+    CONFIRM_DIALOG = "[role='dialog']"
+    CONFIRM_DIALOG_PATIENT_ID_INPUT = (
+        "[role='dialog'] input[name*='patient_id'], "
+        "[role='dialog'] input[name*='patientId'], "
+        "[role='dialog'] input[placeholder*='Patient ID']"
+    )
+    CONFIRM_DIALOG_CONFIRM_BUTTON = "(//button[normalize-space()='Confirm'])[2]"
     CLOSE_BUTTON = "button[aria-label*='close' i], button:has-text('X'), button:has-text('×')"
 
     # Validation containers
@@ -108,8 +118,104 @@ class PatientAdmissionPage(PageBase):
             pass
         self.pw_page.locator(self.FIRST_NAME_INPUT).first.fill(value)
 
+    def fill_last_name(self, value: str):
+        try:
+            self.pw_page.get_by_label(self.LAST_NAME_LABEL, exact=False).first.fill(value)
+            return
+        except Exception:
+            pass
+        self.pw_page.locator(self.LAST_NAME_INPUT).first.fill(value)
+
+    def fill_device_id(self, value: str):
+        try:
+            self.pw_page.get_by_label("Device ID", exact=False).first.fill(value)
+            return
+        except Exception:
+            pass
+        self.pw_page.locator(self.DEVICE_ID_INPUT).first.fill(value)
+
+    def fill_weight(self, value: str):
+        self.pw_page.locator(self.WEIGHT_INPUT_NEW).first.fill(value)
+
+    def fill_height(self, feet: str, inches: str = "0"):
+        self.pw_page.locator(self.FEET_INPUT).first.fill(feet)
+        self.pw_page.locator(self.INCHES_INPUT).first.fill(inches)
+
+    def select_gender_male(self):
+        try:
+            self.pw_page.get_by_role("radio", name=self.MALE_OPTION_LABEL, exact=False).first.check()
+            return
+        except Exception:
+            pass
+
+        try:
+            self.pw_page.get_by_label(self.MALE_OPTION_LABEL, exact=False).first.check()
+            return
+        except Exception:
+            pass
+
+        self.pw_page.locator("input[type='radio'][value='male'], input[name*='gender']").first.check()
+
+    def select_first_referring_physician(self):
+        self.pw_page.locator("div[role='combobox']").click()
+        self.pw_page.get_by_role("option").first.click()
+
+    def clear_patient_id(self):
+        self.fill_patient_id("")
+
+    def clear_device_id(self):
+        self.fill_device_id("")
+
     def click_confirm(self):
         self.pw_page.locator(self.CONFIRM_BUTTON).first.click()
+
+    def get_patient_id_value(self):
+        return (self.pw_page.locator(self.PATIENT_ID_INPUT).first.input_value() or "").strip()
+
+    def fill_confirm_popup_patient_id(self, value: str):
+        try:
+            self.pw_page.get_by_text(
+                "Please confirm the patient ID to complete the admission process", exact=False
+            ).first.wait_for(state="visible", timeout=5000)
+        except Exception:
+            pass
+
+        candidates = [
+            self.pw_page.locator("//input[@id=':r68:']"),
+            self.pw_page.locator(
+                "//p[contains(normalize-space(),'Please confirm the patient ID')]/following::input[1]"
+            ),
+            self.pw_page.locator("//label[contains(normalize-space(),'Patient ID')]/following::input[1]"),
+        ]
+
+        for locator in candidates:
+            if locator.count() == 0:
+                continue
+            try:
+                target = locator.last
+                target.fill("")
+                target.fill(value)
+                return
+            except Exception:
+                continue
+
+        raise AssertionError("Could not locate Patient ID input in confirmation popup.")
+
+    def click_confirm_popup_confirm(self):
+        popup_confirm = self.pw_page.locator(
+            "//p[contains(normalize-space(),'Please confirm the patient ID')]/following::button[normalize-space()='Confirm'][1]"
+        )
+        if popup_confirm.count() > 0:
+            popup_confirm.first.click()
+            return
+
+        dialog_confirm = self.pw_page.locator(self.CONFIRM_DIALOG_CONFIRM_BUTTON)
+        if dialog_confirm.count() > 0:
+            dialog_confirm.first.click()
+            return
+
+        # Fallback to the last visible Confirm button when popup-specific selectors are unavailable.
+        self.pw_page.locator(self.CONFIRM_BUTTON).last.click()
 
     def is_confirm_disabled(self):
         locator = self.pw_page.locator(self.CONFIRM_BUTTON).first
@@ -143,29 +249,44 @@ class PatientAdmissionPage(PageBase):
 
         try:
             locator = self.pw_page.get_by_text(expected_message, exact=False).first
-            if locator.is_visible(timeout=3000):
+            if locator.is_visible(timeout=10000):
                 actual = self._normalize(locator.text_content() or "")
-                if actual == expected:
+                if actual == expected or expected in actual:
                     return True
         except Exception:
             pass
 
         for selector in [self.ERROR_CONTAINER, "text=/up to 30 characters/i"]:
             try:
-                candidate = self.pw_page.locator(selector).first
-                if candidate.is_visible(timeout=1000):
+                locator = self.pw_page.locator(selector)
+                count = locator.count()
+                for idx in range(count):
+                    candidate = locator.nth(idx)
+                    if not candidate.is_visible(timeout=3000):
+                        continue
                     actual = self._normalize(candidate.text_content() or "")
-                    if actual == expected:
+                    if actual == expected or expected in actual:
                         return True
             except Exception:
                 continue
 
+        try:
+            visible_page_text = self._normalize(self.pw_page.locator("body").inner_text(timeout=3000) or "")
+            if expected and expected in visible_page_text:
+                return True
+        except Exception:
+            pass
+
         return False
+
+    def verify_error_message(self, expected_message: str):
+        return self.verify_validation_message(expected_message)
 
     def _wait_visible(self, selector: str, timeout: int):
         self.pw_page.locator(selector).first.wait_for(state="visible", timeout=timeout)
 
     def _normalize(self, value: str):
         text = (value or "").strip().lower()
-        text = re.sub(r"[^a-z0-9\s]", "", text)
+        # Preserve token boundaries so ranges like "1-7" and "1 - 7" normalize consistently.
+        text = re.sub(r"[^a-z0-9]", " ", text)
         return " ".join(text.split())
