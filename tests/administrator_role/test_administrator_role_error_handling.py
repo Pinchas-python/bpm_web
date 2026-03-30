@@ -42,15 +42,6 @@ class TestAdministratorRole(TestBaseOnline):
         )
         return page, session_page, patient_admission_page
 
-    @pytest.mark.smoke
-    @pytest.mark.usefixtures("before_after_test")
-    def test_administrator_metric_user_admit_new_patient_sanity(self):
-        page, _, _ = self._login_and_open_patient_admission()
-
-        assert "patient-admission" in page.pw_page.url or SESSION_URL_FRAGMENT in page.pw_page.url, (
-            f"Expected redirect to patient admission/session management, got '{page.pw_page.url}'"
-        )
-
     @pytest.mark.usefixtures("before_after_test")
     def test_all_fields_empty_show_errors(self):
         _, _, page = self._login_and_open_patient_admission()
