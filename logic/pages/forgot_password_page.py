@@ -4,14 +4,16 @@ import re
 
 class ForgotPasswordPage(PageBase):
     EMAIL_INPUT = "input[type='email'], input[name='email'], input[placeholder='Email *']"
-    BACK_TO_LOGIN = "//button[text()='Back to Login']"
+    BACK_TO_LOGIN = "button:has-text('Back to Login'), button:has-text('Back to login page')"
     REQUEST_CODE = "//button[text()='Request Code']"
     VERIFICATION_CODE_INPUT = (
         "input[name*='Verification Code *'], input[placeholder*='Verification'], input[placeholder*='code']"
     )
     NEW_PASSWORD_INPUT = "input[placeholder='New Password']"
     CONFIRM_PASSWORD_INPUT = "input[placeholder='Confirm New Password']"
-    CHANGE_PASSWORD_BUTTON = "//button[text()='Reset Password']"
+    CHANGE_PASSWORD_BUTTON = (
+        "button:has-text('Reset Password'), button:has-text('Change Password'), button:has-text('Change password')"
+    )
     EMAIL_ERROR = "text=/email is required|please enter a valid email address|invalid email/i"
 
     def verify_forgot_password_page_opened(self):
@@ -35,6 +37,24 @@ class ForgotPasswordPage(PageBase):
     def request_code(self, email: str):
         self.enter_email(email)
         self.click_request_code()
+
+    def enter_verification_code(self, code: str):
+        self.pw_page.locator(self.VERIFICATION_CODE_INPUT).first.fill(code)
+
+    def enter_new_password(self, password: str):
+        self.pw_page.locator(self.NEW_PASSWORD_INPUT).first.fill(password)
+
+    def enter_confirm_password(self, password: str):
+        self.pw_page.locator(self.CONFIRM_PASSWORD_INPUT).first.fill(password)
+
+    def click_change_password(self):
+        self.pw_page.locator(self.CHANGE_PASSWORD_BUTTON).first.click()
+
+    def change_password(self, verification_code: str, new_password: str, confirm_password: str):
+        self.enter_verification_code(verification_code)
+        self.enter_new_password(new_password)
+        self.enter_confirm_password(confirm_password)
+        self.click_change_password()
 
     def verify_verification_screen_opened(self):
         try:
@@ -101,6 +121,45 @@ class ForgotPasswordPage(PageBase):
             return "255, 0, 0" in border_color or "220, 38, 38" in border_color or "red" in border_color
         except Exception:
             return False
+
+    def verify_reset_password_error_message(self, expected_message: str):
+        expected_message = self._normalize_text(expected_message)
+        if not expected_message:
+            return False
+
+        try:
+            matched = self.pw_page.get_by_text(expected_message, exact=False).first
+            if matched.is_visible(timeout=4000):
+                actual = self._normalize_text(matched.text_content() or "")
+                if actual == expected_message or expected_message in actual:
+                    return True
+        except Exception:
+            pass
+
+        for selector in ["[class*='error']", "[role='alert']", "[aria-live='assertive']"]:
+            try:
+                locator = self.pw_page.locator(selector)
+                for idx in range(locator.count()):
+                    item = locator.nth(idx)
+                    if not item.is_visible(timeout=1000):
+                        continue
+                    actual = self._normalize_text(item.text_content() or "")
+                    if actual == expected_message or expected_message in actual:
+                        return True
+            except Exception:
+                continue
+
+        for field_selector in [self.VERIFICATION_CODE_INPUT, self.NEW_PASSWORD_INPUT, self.CONFIRM_PASSWORD_INPUT]:
+            try:
+                message = self._normalize_text(
+                    self.pw_page.locator(field_selector).first.evaluate("el => el.validationMessage") or ""
+                )
+                if message == expected_message or expected_message in message:
+                    return True
+            except Exception:
+                continue
+
+        return False
 
     def _normalize_text(self, value: str):
         text = (value or "").strip().lower()
