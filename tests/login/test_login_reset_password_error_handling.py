@@ -1,9 +1,14 @@
 import pytest
 
-from tests.login.login_base import LoginBase
+from infra.config.config_provider import configuration
+from logic.pages.login_page import LogInOnline
+from tests.test_base_online import TestBaseOnline
 
 
-class TestLoginResetPasswordErrorHandling(LoginBase):
+class TestLoginResetPasswordErrorHandling(TestBaseOnline):
+
+    def open_login_page(self) -> LogInOnline:
+        return self.browser_online.navigate(configuration["online_url"], LogInOnline)
 
     @pytest.mark.usefixtures("before_after_test")
     def test_reset_password_request_code_with_empty_email_shows_error(self):

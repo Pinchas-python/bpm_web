@@ -26,6 +26,19 @@ class SessionManagementPage(PageBase):
         "button[aria-label*='Refresh'], button[aria-label*='refresh']"
     )
 
+    # Settings menu controls
+    SETTINGS_BUTTON = (
+        "//button[@id='profile-button']"
+    )
+    SETTINGS_MENU_CONTAINER = "#popover-content"
+    SETTINGS_CLIENT_NAME = "#client-name-text"
+    SETTINGS_USERNAME = "#username-text"
+    SETTINGS_LOGOUT_CONTAINER = "#logout-container"
+    SETTINGS_VERSION_TEXT = "#version-text"
+    SETTINGS_EMAIL_SUPPORT_OPTION = "text=Email Support"
+    SETTINGS_CHOOSE_DEPARTMENT_OPTION = "text=Choose Department"
+    SETTINGS_LOGOUT_OPTION = "text=Log out"
+
     # Session grid columns and states
     ADMISSION_DATE_HEADER = "text=Admission Date"
     PATIENT_ID_HEADER = "text=Patient ID"
@@ -80,6 +93,55 @@ class SessionManagementPage(PageBase):
     def open_patient_admission(self):
         self._click_any_visible([self.PATIENT_ADMISSION_NAV], timeout=10000)
         return PatientAdmissionPage(self.pw_page)
+
+    def open_settings_menu(self):
+        self._click_any_visible([self.SETTINGS_BUTTON], timeout=10000)
+
+    def verify_settings_menu_opened(self):
+        try:
+            self._wait_any_visible([self.SETTINGS_MENU_CONTAINER], timeout=10000)
+            self._wait_any_visible([self.SETTINGS_CLIENT_NAME], timeout=10000)
+            self._wait_any_visible([self.SETTINGS_USERNAME], timeout=10000)
+            self._wait_any_visible([self.SETTINGS_LOGOUT_CONTAINER], timeout=10000)
+            self._wait_any_visible([self.SETTINGS_EMAIL_SUPPORT_OPTION], timeout=10000)
+            self._wait_any_visible([self.SETTINGS_CHOOSE_DEPARTMENT_OPTION], timeout=10000)
+            self._wait_any_visible([self.SETTINGS_LOGOUT_OPTION], timeout=10000)
+            return True
+        except Exception:
+            return False
+
+    def verify_settings_user_email_visible(self, user_email: str):
+        try:
+            self.pw_page.get_by_text(user_email, exact=False).first.wait_for(state="visible", timeout=10000)
+            return True
+        except Exception:
+            return False
+
+    def verify_settings_client_name_equals(self, expected_client_name: str):
+        try:
+            client_name = (self.pw_page.locator(self.SETTINGS_CLIENT_NAME).first.text_content() or "").strip()
+            return client_name == expected_client_name
+        except Exception:
+            return False
+
+    def verify_email_support_visible(self):
+        try:
+            self.pw_page.locator(self.SETTINGS_EMAIL_SUPPORT_OPTION).first.wait_for(state="visible", timeout=10000)
+            return True
+        except Exception:
+            return False
+
+    def verify_choose_department_visible(self):
+        try:
+            self.pw_page.locator(self.SETTINGS_CHOOSE_DEPARTMENT_OPTION).first.wait_for(
+                state="visible", timeout=10000
+            )
+            return True
+        except Exception:
+            return False
+
+    def click_logout(self):
+        self._click_any_visible([self.SETTINGS_LOGOUT_OPTION], timeout=10000)
 
     def _wait_any_visible(self, selectors, timeout=6000):
         if isinstance(selectors, str):

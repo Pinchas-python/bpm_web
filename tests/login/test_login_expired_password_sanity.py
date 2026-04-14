@@ -1,10 +1,18 @@
 import pytest
+import os
 
+from infra.config.config_provider import configuration
 from logic.pages.forgot_password_page import ForgotPasswordPage
-from tests.login.login_base import LoginBase
+from logic.pages.login_page import LogInOnline
+from tests.test_base_online import TestBaseOnline
 
 
-class TestLoginExpiredPasswordSanity(LoginBase):
+class TestLoginExpiredPasswordSanity(TestBaseOnline):
+    expired_user_email = os.getenv("EXPIRED_USER_EMAIL", "pini.mari@bio-beat.com")
+    expired_user_password = os.getenv("EXPIRED_USER_PASSWORD", "Pm1234567!")
+
+    def open_login_page(self) -> LogInOnline:
+        return self.browser_online.navigate(configuration["online_url"], LogInOnline)
 
     @pytest.mark.usefixtures("before_after_test")
     def test_login_with_expired_password_opens_reset_password_screen(self):

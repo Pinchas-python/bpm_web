@@ -1,5 +1,6 @@
 import os
 import pytest
+from typing import Tuple
 
 from infra.config.config_provider import configuration
 from logic.pages.login_page import LogInOnline
@@ -15,10 +16,12 @@ ADMIN_PASSWORD = os.getenv("ADMIN_METRIC_PASSWORD", "Pm1234567!")
 
 class TestAdministratorRoleSanity(TestBaseOnline):
 
-	def _login_and_open_patient_admission(self):
+	def _open_login_page(self) -> LogInOnline:
 		page: LogInOnline = self.browser_online.navigate(configuration["online_url"], LogInOnline)
 		assert page.verify_login_page_opened(), "Login page did not load for administrator scenario."
+		return page
 
+	def _login_to_session_management(self, page: LogInOnline) -> SessionManagementPage:
 		page.login(ADMIN_EMAIL, ADMIN_PASSWORD)
 
 		session_page = SessionManagementPage(page.pw_page)
@@ -28,12 +31,24 @@ class TestAdministratorRoleSanity(TestBaseOnline):
 		assert session_page.verify_session_grid_opened(), (
 			"Session grid controls or columns are not visible on session management page."
 		)
+		return session_page
 
+	def _open_patient_admission(
+		self, session_page: SessionManagementPage
+	) -> PatientAdmissionPage:
 		patient_admission_page: PatientAdmissionPage = session_page.open_patient_admission()
 		assert patient_admission_page.verify_opened(), (
 			"Patient admission form did not open with required fields and confirm action. "
 			f"Details: {patient_admission_page.get_last_open_failure()}"
 		)
+		return patient_admission_page
+
+	def _login_and_open_patient_admission(
+		self,
+	) -> Tuple[LogInOnline, SessionManagementPage, PatientAdmissionPage]:
+		page = self._open_login_page()
+		session_page = self._login_to_session_management(page)
+		patient_admission_page = self._open_patient_admission(session_page)
 		return page, session_page, patient_admission_page
 
 	@pytest.mark.smoke
