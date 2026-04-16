@@ -1,5 +1,6 @@
 import os
 import pytest
+import time
 from typing import Tuple
 
 from infra.config.config_provider import configuration
@@ -12,9 +13,37 @@ from tests.test_base_online import TestBaseOnline
 SESSION_URL_FRAGMENT = "session-management"
 ADMIN_EMAIL = os.getenv("ADMIN_METRIC_EMAIL", "pinimari1@gmail.com")
 ADMIN_PASSWORD = os.getenv("ADMIN_METRIC_PASSWORD", "Pm1234567!")
+SANITY_DEVICE_ID = "1111111"
 
 
 class TestAdministratorRoleSanity(TestBaseOnline):
+	def _fill_minimum_required_fields(self, admission: PatientAdmissionPage) -> str:
+		# Minimum valid values for required fields only.
+		patient_id = f"A{int(time.time()) % 10}"
+		device_id = SANITY_DEVICE_ID
+
+		admission.fill_patient_id(patient_id)
+		admission.fill_device_id(device_id)
+		admission.select_gender_male()
+		admission.fill_weight("22")
+		admission.fill_height("1", "0")
+		admission.select_first_referring_physician()
+		return patient_id
+
+	def _confirm_admission_and_verify_redirect_overlay(self, admission: PatientAdmissionPage, patient_id: str):
+		admission.click_confirm()
+		popup_header = admission.pw_page.get_by_text(
+			"Please confirm the patient ID to complete the admission process", exact=False
+		).first
+		popup_header.wait_for(state="visible", timeout=10000)
+
+		admission.fill_confirm_popup_patient_id(patient_id)
+		admission.click_confirm_popup_confirm()
+
+		session_page = SessionManagementPage(admission.pw_page)
+		assert session_page.verify_redirect_overlay_visible(), (
+			"Expected redirect overlay text: 'You are being redirected to the Session Management screen'."
+		)
 
 	def _open_login_page(self) -> LogInOnline:
 		page: LogInOnline = self.browser_online.navigate(configuration["online_url"], LogInOnline)
@@ -54,8 +83,28 @@ class TestAdministratorRoleSanity(TestBaseOnline):
 	@pytest.mark.smoke
 	@pytest.mark.usefixtures("before_after_test")
 	def test_administrator_metric_user_admit_new_patient_sanity(self):
-		page, _, _ = self._login_and_open_patient_admission()
+		page = self._open_login_page()
+		try:
+			session_page = self._login_to_session_management(page)
+			admission = self._open_patient_admission(session_page)
 
-		assert "patient-admission" in page.pw_page.url or SESSION_URL_FRAGMENT in page.pw_page.url, (
-			f"Expected redirect to patient admission/session management, got '{page.pw_page.url}'"
-		)
+			patient_id = self._fill_minimum_required_fields(admission)
+			self._confirm_admission_and_verify_redirect_overlay(admission, patient_id)
+
+			session_page = SessionManagementPage(page.pw_page)
+			assert session_page.verify_session_management_page_opened(), (
+				"Expected to be redirected to Session Management after successful patient assignment."
+			)
+			assert session_page.verify_patient_status_in_table(patient_id, "Pending"), (
+				f"Expected admitted patient '{patient_id}' to appear in session table with status 'Pending'."
+			)
+
+			assert "patient-admission" in page.pw_page.url or SESSION_URL_FRAGMENT in page.pw_page.url, (
+				f"Expected redirect to patient admission/session management, got '{page.pw_page.url}'"
+			)
+		finally:
+			try:
+				cleanup_session_page = SessionManagementPage(page.pw_page)
+				cleanup_session_page.remove_session_by_device_id_if_exists(SANITY_DEVICE_ID)
+			except Exception:
+				pass
