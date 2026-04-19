@@ -106,6 +106,102 @@ class SessionManagementPage(PageBase):
         except Exception:
             return False
 
+    def verify_required_controls_opened(self):
+        try:
+            if not self.verify_session_grid_opened():
+                return False
+
+            self._wait_any_visible(
+                [
+                    self.PATIENT_ADMISSION_NAV,
+                    "text=New patient",
+                    "text=New Patient",
+                ],
+                timeout=10000,
+            )
+            self._wait_any_visible([self.PATIENT_LOOKUP_NAV, "text=Patient Lookup"], timeout=10000)
+            self._wait_any_visible([self.SETTINGS_BUTTON], timeout=10000)
+            return True
+        except Exception:
+            return False
+
+    def verify_row_actions_by_status(self, status_value: str, expect_edit_enabled: bool):
+        self.open_row_action_menu_by_status(status_value)
+
+        edit_admission_option = self._get_visible_menu_option("Edit admission")
+        complete_session_option = self._get_visible_menu_option("Complete session")
+        remove_option = self._get_visible_menu_option(["Remove", "Remove Session"])
+
+        edit_enabled = self._is_action_enabled(edit_admission_option)
+        complete_enabled = self._is_action_enabled(complete_session_option)
+        remove_enabled = self._is_action_enabled(remove_option)
+
+        # Close menu before next interaction.
+        self.pw_page.keyboard.press("Escape")
+
+        return (
+            edit_enabled == expect_edit_enabled
+            and complete_enabled
+            and remove_enabled
+        )
+
+    def open_row_action_menu_by_status(self, status_value: str):
+        row = self.pw_page.locator(
+            f"//tr[.//*[contains(translate(normalize-space(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{status_value.lower()}')]]"
+        ).first
+        row.wait_for(state="visible", timeout=15000)
+
+        # In some builds, the row action button appears only on hover.
+        try:
+            row.hover()
+        except Exception:
+            pass
+
+        action_button = row.locator(self.ROW_ACTION_BUTTON).last
+        action_button.wait_for(state="visible", timeout=10000)
+        action_button.click()
+
+    def _get_visible_menu_option(self, labels):
+        if isinstance(labels, str):
+            labels = [labels]
+
+        for label in labels:
+            menu_item = self.pw_page.get_by_role("menuitem", name=label, exact=False).first
+            try:
+                menu_item.wait_for(state="visible", timeout=2000)
+                return menu_item
+            except Exception:
+                pass
+
+            text_item = self.pw_page.get_by_text(label, exact=False).first
+            try:
+                text_item.wait_for(state="visible", timeout=2000)
+                return text_item
+            except Exception:
+                pass
+
+        raise AssertionError(f"Could not find visible menu option for labels: {labels}")
+
+    def _is_action_enabled(self, locator):
+        try:
+            aria_disabled = (locator.get_attribute("aria-disabled") or "").strip().lower()
+            if aria_disabled == "true":
+                return False
+        except Exception:
+            pass
+
+        try:
+            class_name = (locator.get_attribute("class") or "").lower()
+            if "disabled" in class_name:
+                return False
+        except Exception:
+            pass
+
+        try:
+            return locator.is_enabled()
+        except Exception:
+            return False
+
     def open_patient_admission(self):
         self._click_any_visible([self.PATIENT_ADMISSION_NAV], timeout=10000)
         return PatientAdmissionPage(self.pw_page)
