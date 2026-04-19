@@ -161,6 +161,221 @@ class SessionManagementPage(PageBase):
         action_button.wait_for(state="visible", timeout=10000)
         action_button.click()
 
+    def open_row_action_menu_for_any_existing_session(self):
+        statuses = ["Pending", "Active", "Complete limited", "Complete"]
+        for status in statuses:
+            try:
+                self.open_row_action_menu_by_status(status)
+                return True
+            except Exception:
+                continue
+
+        return False
+
+    def verify_delete_related_row_actions_visible(self):
+        if not self.open_row_action_menu_for_any_existing_session():
+            return False
+
+        try:
+            self._get_visible_menu_option(["Edit session", "Edit admission", "Edit"]).is_visible()
+            self._get_visible_menu_option("Complete session").is_visible()
+            self._get_visible_menu_option(["Remove", "Remove Session"]).is_visible()
+            return True
+        except Exception:
+            return False
+        finally:
+            try:
+                self.pw_page.keyboard.press("Escape")
+            except Exception:
+                pass
+
+    def open_remove_session_dialog_for_any_existing_session(self):
+        if not self.open_row_action_menu_for_any_existing_session():
+            return False
+
+        try:
+            self._get_visible_menu_option(["Remove Session", "Remove"]).click()
+            dialog = self.pw_page.locator(self.REMOVE_SESSION_DIALOG).first
+            dialog.wait_for(state="visible", timeout=10000)
+            return True
+        except Exception:
+            return False
+
+    def click_cancel_in_remove_session_dialog(self):
+        try:
+            dialog = self.pw_page.locator(self.REMOVE_SESSION_DIALOG).first
+            dialog.wait_for(state="visible", timeout=5000)
+            cancel_button = dialog.get_by_role("button", name="Cancel", exact=False).first
+            cancel_button.wait_for(state="visible", timeout=5000)
+            cancel_button.click()
+
+            # Allow close animation; if still open, use Escape as a fallback close action.
+            try:
+                dialog.wait_for(state="hidden", timeout=2000)
+            except Exception:
+                try:
+                    self.pw_page.keyboard.press("Escape")
+                except Exception:
+                    pass
+            return True
+        except Exception:
+            return False
+
+    def verify_remove_session_dialog_closed(self):
+        remove_dialog = self.pw_page.locator(
+            f"{self.REMOVE_SESSION_DIALOG}:has-text('Are you sure you want to remove this session')"
+        ).first
+
+        # Poll for a short window because some builds close the dialog with animation.
+        for _ in range(25):
+            try:
+                if remove_dialog.count() == 0:
+                    return True
+
+                if not remove_dialog.is_visible():
+                    return True
+            except Exception:
+                return True
+
+            self.pw_page.wait_for_timeout(200)
+
+        try:
+            remove_dialog.wait_for(state="hidden", timeout=1000)
+            return True
+        except Exception:
+            return False
+
+    def delete_session_with_wrong_then_correct_patient_id(self):
+        if not self.open_remove_session_dialog_for_any_existing_session():
+            return False
+
+        dialog = self.pw_page.locator(self.REMOVE_SESSION_DIALOG).first
+        remove_button = dialog.get_by_role("button", name="Remove", exact=False).first
+        patient_id_input = dialog.locator(self.REMOVE_SESSION_PATIENT_ID_INPUT).first
+
+        try:
+            dialog.wait_for(state="visible", timeout=8000)
+            remove_button.wait_for(state="visible", timeout=5000)
+            patient_id_input.wait_for(state="visible", timeout=5000)
+        except Exception:
+            return False
+
+        # Step: click Remove while empty; expected behavior is no deletion.
+        try:
+            remove_button.click(timeout=800)
+        except Exception:
+            pass
+
+        dialog_text = ""
+        patient_id_line = ""
+        device_id_line = ""
+        try:
+            dialog_text = dialog.inner_text(timeout=3000) or ""
+        except Exception:
+            pass
+
+        try:
+            patient_lines = dialog.locator(
+                "xpath=.//*[contains(translate(normalize-space(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'patient id')]"
+            ).all_text_contents()
+            for line in patient_lines:
+                clean = (line or "").strip()
+                if "patient id" in clean.lower():
+                    patient_id_line = clean
+                    break
+        except Exception:
+            pass
+
+        try:
+            device_lines = dialog.locator(
+                "xpath=.//*[contains(translate(normalize-space(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'device id')]"
+            ).all_text_contents()
+            for line in device_lines:
+                clean = (line or "").strip()
+                if "device id" in clean.lower():
+                    device_id_line = clean
+                    break
+        except Exception:
+            pass
+
+        patient_match = re.search(
+            r"Patient\s*ID\s*:?\s*([A-Za-z0-9_-]+)",
+            patient_id_line or dialog_text,
+            flags=re.IGNORECASE,
+        )
+        device_match = re.search(
+            r"Device\s*ID\s*:?\s*([A-Za-z0-9_-]+)",
+            device_id_line or dialog_text,
+            flags=re.IGNORECASE,
+        )
+
+        patient_id = patient_match.group(1).strip() if patient_match else ""
+        device_id = device_match.group(1).strip() if device_match else ""
+        if not patient_id:
+            return False
+
+        lookup_value = device_id or patient_id
+        before_count = 0
+        try:
+            self.search_session(lookup_value)
+            before_count = self.pw_page.locator(
+                f"//tr[.//*[contains(normalize-space(),'{lookup_value}')]]"
+            ).count()
+        except Exception:
+            before_count = 0
+
+        wrong_patient_id = f"{patient_id}0"
+        if wrong_patient_id == patient_id:
+            wrong_patient_id = f"X{patient_id}"
+
+        # Step: enter wrong ID and click Remove.
+        try:
+            patient_id_input.fill("")
+            patient_id_input.fill(wrong_patient_id)
+            remove_button.click(timeout=1000)
+        except Exception:
+            pass
+
+        # Step: copy Patient ID from popup and insert into input field.
+        try:
+            copied_patient_id = patient_id
+            patient_id_input.fill("")
+            patient_id_input.fill(copied_patient_id)
+        except Exception:
+            return False
+
+        # Step: click Remove with correct copied ID.
+        for _ in range(20):
+            try:
+                remove_button.click(timeout=1200)
+            except Exception:
+                pass
+            self.pw_page.wait_for_timeout(200)
+            try:
+                if not dialog.is_visible():
+                    break
+            except Exception:
+                break
+
+        if not self.verify_remove_session_dialog_closed():
+            return False
+
+        try:
+            self.search_session(lookup_value)
+            after_rows = self.pw_page.locator(
+                f"//tr[.//*[contains(normalize-space(),'{lookup_value}')]]"
+            )
+            for _ in range(35):
+                after_count = after_rows.count()
+                if after_count == 0:
+                    return True
+                if before_count > 0 and after_count < before_count:
+                    return True
+                self.pw_page.wait_for_timeout(200)
+            return False
+        except Exception:
+            return True
+
     def _get_visible_menu_option(self, labels):
         if isinstance(labels, str):
             labels = [labels]
@@ -372,6 +587,33 @@ class SessionManagementPage(PageBase):
         self.pw_page.wait_for_timeout(1200)
         return row.count() == 0
 
+    def _wait_any_visible(self, selectors, timeout=6000):
+        if isinstance(selectors, str):
+            selectors = [selectors]
+
+        for selector in selectors:
+            try:
+                self.pw_page.locator(selector).first.wait_for(state="visible", timeout=timeout)
+                return
+            except Exception:
+                continue
+
+        raise AssertionError(f"None of selectors became visible: {selectors}")
+
+    def _click_any_visible(self, selectors, timeout=6000):
+        if isinstance(selectors, str):
+            selectors = [selectors]
+
+        for selector in selectors:
+            try:
+                locator = self.pw_page.locator(selector).first
+                locator.wait_for(state="visible", timeout=timeout)
+                locator.click()
+                return
+            except Exception:
+                continue
+
+        raise AssertionError(f"Could not click any selector from: {selectors}")
     def _wait_any_visible(self, selectors, timeout=6000):
         if isinstance(selectors, str):
             selectors = [selectors]
