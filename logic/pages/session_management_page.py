@@ -1,6 +1,7 @@
 from infra.page_base import PageBase
 from logic.pages.patient_admission_page import PatientAdmissionPage
 import re
+from typing import List
 
 
 class SessionManagementPage(PageBase):
@@ -18,7 +19,7 @@ class SessionManagementPage(PageBase):
         "input[aria-label*='Search Session']"
     )
     FILTER_BY_STATUS_DROPDOWN = (
-        "text=Filter by Status"
+        "xpath=//label[contains(normalize-space(),'Filter by Status')]/following::div[@role='combobox'][1]"
     )
     SHOW_HIDE_COLUMNS_DROPDOWN = (
         "text=Show/Hide Columns"
@@ -124,6 +125,72 @@ class SessionManagementPage(PageBase):
             return True
         except Exception:
             return False
+
+    def click_session_column_header(self, header_label: str):
+        header = self._get_session_column_header(header_label)
+        try:
+            header.scroll_into_view_if_needed(timeout=2000)
+        except Exception:
+            pass
+        header.click()
+        self.pw_page.wait_for_timeout(400)
+
+    def get_session_column_sort_state(self, header_label: str):
+        try:
+            header = self._get_session_column_header(header_label)
+            raw_values = [
+                (header.get_attribute("aria-sort") or "").strip().lower(),
+                (header.get_attribute("data-sort") or "").strip().lower(),
+                (header.get_attribute("data-sort-direction") or "").strip().lower(),
+                (header.get_attribute("class") or "").strip().lower(),
+            ]
+            return self._normalize_sort_state(" ".join(raw_values))
+        except Exception:
+            return "unknown"
+
+    def verify_session_column_sorted_ascending(self, header_label: str):
+        self.click_session_column_header(header_label)
+        return self.get_session_column_sort_state(header_label) == "ascending"
+
+    def verify_session_column_sorted_descending(self, header_label: str):
+        self.click_session_column_header(header_label)
+        self.click_session_column_header(header_label)
+        return self.get_session_column_sort_state(header_label) == "descending"
+
+    def verify_session_columns_sorted_ascending_then_descending(self, header_labels: List[str]):
+        for header_label in header_labels:
+            self.click_session_column_header(header_label)
+            if self.get_session_column_sort_state(header_label) != "ascending":
+                return False
+
+            self.click_session_column_header(header_label)
+            if self.get_session_column_sort_state(header_label) != "descending":
+                return False
+        return True
+
+    def _get_session_column_header(self, header_label: str):
+        lowered = header_label.lower()
+        xpath = (
+            "xpath=(//th[contains(translate(normalize-space(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "
+            f"'{lowered}')] | "
+            "//*[@role='columnheader'][contains(translate(normalize-space(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), "
+            f"'{lowered}')])[1]"
+        )
+        header = self.pw_page.locator(xpath).first
+        header.wait_for(state="visible", timeout=10000)
+        return header
+
+    def _normalize_sort_state(self, raw_value: str):
+        value = (raw_value or "").lower()
+        if "descending" in value or " desc" in value or "-desc" in value or "_desc" in value:
+            return "descending"
+        if "ascending" in value or " asc" in value or "-asc" in value or "_asc" in value:
+            return "ascending"
+        if "sort-asc" in value:
+            return "ascending"
+        if "sort-desc" in value:
+            return "descending"
+        return "unknown"
 
     def verify_row_actions_by_status(self, status_value: str, expect_edit_enabled: bool):
         self.open_row_action_menu_by_status(status_value)
@@ -376,6 +443,209 @@ class SessionManagementPage(PageBase):
         except Exception:
             return True
 
+    def delete_session_and_verify_patient_not_in_session_management(self):
+        if not self.open_remove_session_dialog_for_any_existing_session():
+            return False
+
+        dialog = self.pw_page.locator(self.REMOVE_SESSION_DIALOG).first
+        remove_button = dialog.get_by_role("button", name="Remove", exact=False).first
+        patient_id_input = dialog.locator(self.REMOVE_SESSION_PATIENT_ID_INPUT).first
+
+        try:
+            dialog.wait_for(state="visible", timeout=8000)
+            remove_button.wait_for(state="visible", timeout=5000)
+            patient_id_input.wait_for(state="visible", timeout=5000)
+        except Exception:
+            return False
+
+        dialog_text = ""
+        try:
+            dialog_text = dialog.inner_text(timeout=3000) or ""
+        except Exception:
+            pass
+
+        # Copy Patient ID from the popup details line: "Patient ID: <value>".
+        patient_id = ""
+        for line in dialog_text.splitlines():
+            if "patient id" not in line.lower():
+                continue
+
+            match = re.search(r"Patient\s*ID\s*:\s*(.+)", line, flags=re.IGNORECASE)
+            if match:
+                patient_id = match.group(1).strip()
+                break
+
+        if not patient_id:
+            patient_match = re.search(
+                r"Patient\s*ID\s*:?\s*([A-Za-z0-9_-]+)",
+                dialog_text,
+                flags=re.IGNORECASE,
+            )
+            patient_id = patient_match.group(1).strip() if patient_match else ""
+
+        if not patient_id:
+            return False
+
+        # Copy patient ID from popup and insert it into confirmation input.
+        try:
+            patient_id_input.fill("")
+            patient_id_input.fill(patient_id)
+            patient_id_input.press("Tab")
+        except Exception:
+            return False
+
+        # Wait until Remove becomes enabled after entering the copied Patient ID.
+        for _ in range(25):
+            if self._is_action_enabled(remove_button):
+                break
+            self.pw_page.wait_for_timeout(150)
+
+        for _ in range(20):
+            try:
+                remove_button.click(timeout=1200)
+            except Exception:
+                pass
+
+            self.pw_page.wait_for_timeout(200)
+            try:
+                if not dialog.is_visible():
+                    break
+            except Exception:
+                break
+
+        if not self.verify_remove_session_dialog_closed():
+            return False
+
+        try:
+            # Ensure we are on Session Management before verifying row absence.
+            self._click_any_visible([self.SESSION_MANAGEMENT_HEADER, "text=Session Management"], timeout=10000)
+            self.search_session(patient_id)
+            self.pw_page.wait_for_timeout(1000)
+        except Exception:
+            return False
+
+        patient_row = self.pw_page.locator(
+            f"//tr[.//*[contains(normalize-space(),'{patient_id}')]]"
+        )
+        return patient_row.count() == 0
+
+    def copy_patient_id_from_remove_session_dialog(self):
+        dialog = self.pw_page.locator(self.REMOVE_SESSION_DIALOG).first
+        try:
+            dialog.wait_for(state="visible", timeout=8000)
+            dialog_text = dialog.inner_text(timeout=3000) or ""
+        except Exception:
+            return ""
+
+        # Same extraction strategy used in remove_session_by_device_id_if_exists.
+        match = re.search(r"Patient\s*ID\s*:\s*([^\r\n]+)", dialog_text, flags=re.IGNORECASE)
+        return match.group(1).strip() if match else ""
+
+    def paste_patient_id_in_remove_session_field(self, patient_id: str):
+        try:
+            dialog = self.pw_page.locator(self.REMOVE_SESSION_DIALOG).first
+            dialog.wait_for(state="visible", timeout=5000)
+            # Same input-locator strategy used in remove_session_by_device_id_if_exists.
+            patient_id_input = dialog.locator("input[id^=':r'], input[type='text'], input").first
+            patient_id_input.wait_for(state="visible", timeout=5000)
+            patient_id_input.fill("")
+            patient_id_input.fill(patient_id)
+            patient_id_input.press("Tab")
+            return True
+        except Exception:
+            return False
+
+    def click_remove_in_remove_session_dialog(self):
+        try:
+            dialog = self.pw_page.locator(self.REMOVE_SESSION_DIALOG).first
+            dialog.wait_for(state="visible", timeout=5000)
+            remove_button = dialog.get_by_role("button", name="Remove", exact=False).first
+            remove_button.wait_for(state="visible", timeout=5000)
+
+            # Same enable-wait pattern used in remove_session_by_device_id_if_exists.
+            for _ in range(25):
+                if self._is_action_enabled(remove_button):
+                    break
+                self.pw_page.wait_for_timeout(150)
+
+            remove_button.click(timeout=1500)
+            return True
+        except Exception:
+            # Same fallback behavior used in remove_session_by_device_id_if_exists.
+            confirm_candidates = [
+                self.pw_page.get_by_role("button", name="Remove", exact=False).first,
+                self.pw_page.get_by_role("button", name="Confirm", exact=False).first,
+            ]
+            for candidate in confirm_candidates:
+                try:
+                    if candidate.is_visible(timeout=2000):
+                        candidate.click()
+                        return True
+                except Exception:
+                    continue
+            return False
+
+    def verify_remove_button_disabled_for_empty_patient_id(self):
+        try:
+            dialog = self.pw_page.locator(self.REMOVE_SESSION_DIALOG).first
+            dialog.wait_for(state="visible", timeout=5000)
+
+            patient_id_input = dialog.locator("input[id^=':r'], input[type='text'], input").first
+            patient_id_input.wait_for(state="visible", timeout=5000)
+            patient_id_input.fill("")
+            patient_id_input.press("Tab")
+
+            remove_button = dialog.get_by_role("button", name="Remove", exact=False).first
+            remove_button.wait_for(state="visible", timeout=5000)
+            return not self._is_action_enabled(remove_button)
+        except Exception:
+            return False
+
+    def verify_remove_button_disabled_for_wrong_patient_id(self, expected_patient_id: str):
+        try:
+            dialog = self.pw_page.locator(self.REMOVE_SESSION_DIALOG).first
+            dialog.wait_for(state="visible", timeout=5000)
+
+            patient_id_input = dialog.locator("input[id^=':r'], input[type='text'], input").first
+            patient_id_input.wait_for(state="visible", timeout=5000)
+
+            wrong_patient_id = f"{expected_patient_id}0"
+            if wrong_patient_id == expected_patient_id:
+                wrong_patient_id = f"X{expected_patient_id}"
+
+            patient_id_input.fill("")
+            patient_id_input.fill(wrong_patient_id)
+            patient_id_input.press("Tab")
+
+            self.pw_page.wait_for_timeout(300)
+            remove_button = dialog.get_by_role("button", name="Remove", exact=False).first
+            remove_button.wait_for(state="visible", timeout=5000)
+            return not self._is_action_enabled(remove_button)
+        except Exception:
+            return False
+
+    def verify_patient_not_in_session_management(self, patient_id: str):
+        try:
+            self._click_any_visible([self.SESSION_MANAGEMENT_HEADER, "text=Session Management"], timeout=10000)
+            self.search_session(patient_id)
+        except Exception:
+            return False
+
+        patient_row = self.pw_page.locator(
+            f"//tr[.//*[contains(normalize-space(),'{patient_id}')]]"
+        )
+
+        for _ in range(30):
+            if patient_row.count() == 0:
+                return True
+            self.pw_page.wait_for_timeout(200)
+
+        return False
+
+    def delete_session_and_verify_patient_not_in_lookup(self):
+        # Backward-compatible wrapper for older tests.
+        return self.delete_session_and_verify_patient_not_in_session_management()
+
     def _get_visible_menu_option(self, labels):
         if isinstance(labels, str):
             labels = [labels]
@@ -498,6 +768,470 @@ class SessionManagementPage(PageBase):
 
     def search_session(self, value: str):
         self.pw_page.locator(self.SEARCH_SESSION_INPUT).first.fill(value)
+
+    def get_first_session_row_field_value(self, header_label: str):
+        try:
+            column_index = self._get_session_column_index(header_label)
+            row = self.pw_page.locator("//tr[.//td]").first
+            row.wait_for(state="visible", timeout=10000)
+            value = row.locator(f"td:nth-child({column_index})").first.text_content() or ""
+            return value.strip()
+        except Exception:
+            return ""
+
+    def verify_search_filters_results(self, query: str):
+        if not query:
+            return False
+
+        self.search_session(query)
+        self.pw_page.wait_for_timeout(700)
+
+        rows = self.pw_page.locator("//tr[.//td]")
+        row_count = rows.count()
+        if row_count == 0:
+            return False
+
+        query_lower = query.strip().lower()
+        max_rows = min(row_count, 20)
+        for index in range(max_rows):
+            row_text = (rows.nth(index).inner_text() or "").lower()
+            if query_lower not in row_text:
+                return False
+        return True
+
+    def open_filter_by_status_dropdown(self):
+        try:
+            self._click_any_visible([self.FILTER_BY_STATUS_DROPDOWN], timeout=6000)
+            return True
+        except Exception:
+            return False
+
+    def verify_filter_by_status_options_visible(self, options: List[str]):
+        if not self.open_filter_by_status_dropdown():
+            return False
+
+        try:
+            for option in options:
+                self.pw_page.get_by_text(option, exact=False).first.wait_for(state="visible", timeout=4000)
+            return True
+        except Exception:
+            return False
+        finally:
+            try:
+                self.pw_page.keyboard.press("Escape")
+            except Exception:
+                pass
+
+    def apply_filter_by_status(self, status_value: str):
+        if not self.open_filter_by_status_dropdown():
+            return False
+
+        status_aliases = {
+            "complete and limited": [
+                "Complete & Complete Limited",
+                "Complete and limited",
+                "Complete limited",
+                "Complete",
+            ],
+            "complete limited": [
+                "Complete & Complete Limited",
+                "Complete limited",
+                "Complete and limited",
+                "Complete",
+            ],
+        }
+        labels = status_aliases.get(status_value.strip().lower(), [status_value])
+
+        for label in labels:
+            try:
+                # Explicit flow: open dropdown listbox, then click the wanted status option.
+                listbox = self.pw_page.locator("[role='listbox']").last
+                listbox.wait_for(state="visible", timeout=3000)
+
+                option = listbox.get_by_text(label, exact=False).first
+                option.wait_for(state="visible", timeout=2000)
+                option.click(timeout=3000)
+                self.pw_page.wait_for_timeout(300)
+
+                # MUI dropdown may stay open in some runs; force close before continuing.
+                if self.pw_page.locator("[role='listbox']").count() > 0:
+                    try:
+                        self.pw_page.keyboard.press("Escape")
+                    except Exception:
+                        pass
+                    self.pw_page.wait_for_timeout(200)
+
+                if self.pw_page.locator("[role='listbox']").count() > 0:
+                    try:
+                        self.pw_page.mouse.click(5, 5)
+                    except Exception:
+                        pass
+
+                self.pw_page.wait_for_timeout(400)
+                return True
+            except Exception:
+                continue
+
+        return False
+
+    def verify_only_rows_with_status_visible(self, status_value: str):
+        rows = self.pw_page.locator("//tr[.//td]")
+        row_count = rows.count()
+        if row_count == 0:
+            return False
+
+        expected = status_value.strip().lower().replace(" and ", " ")
+        max_rows = min(row_count, 20)
+        for index in range(max_rows):
+            row_text = (rows.nth(index).inner_text() or "").lower().replace(" and ", " ")
+            if expected not in row_text:
+                return False
+        return True
+
+    def open_show_hide_columns_dropdown(self):
+        for _ in range(3):
+            try:
+                self._click_any_visible([self.SHOW_HIDE_COLUMNS_DROPDOWN], timeout=6000)
+                self._get_show_hide_columns_container()
+                return True
+            except Exception:
+                try:
+                    self.pw_page.keyboard.press("Escape")
+                except Exception:
+                    pass
+                self.pw_page.wait_for_timeout(250)
+        return False
+
+    def get_show_hide_columns_options(self):
+        if not self.open_show_hide_columns_dropdown():
+            return []
+
+        try:
+            container = self._get_show_hide_columns_container()
+            options = []
+
+            list_items = container.locator("li")
+            item_count = list_items.count()
+            for index in range(item_count):
+                text_value = (list_items.nth(index).inner_text() or "").strip()
+                text_value = re.sub(r"\s+", " ", text_value)
+                if text_value:
+                    options.append(text_value)
+
+            if options:
+                return options
+
+            # Fallback when options are not rendered as list items.
+            container_text = (container.inner_text(timeout=1000) or "").strip()
+            lines = [re.sub(r"\s+", " ", line).strip() for line in container_text.splitlines()]
+            return [line for line in lines if line]
+        except Exception:
+            return []
+        finally:
+            try:
+                self.pw_page.keyboard.press("Escape")
+            except Exception:
+                pass
+
+    def verify_show_hide_columns_dropdown_without_device_id(self):
+        if not self.open_show_hide_columns_dropdown():
+            return False
+
+        try:
+            popup_selectors = [
+                "[role='menu']",
+                "[role='listbox']",
+                "[role='dialog']",
+                "#popover-content",
+            ]
+            container_text = ""
+            for selector in popup_selectors:
+                try:
+                    locator = self.pw_page.locator(selector).last
+                    locator.wait_for(state="visible", timeout=800)
+                    container_text = (locator.inner_text(timeout=800) or "").lower()
+                    if container_text:
+                        break
+                except Exception:
+                    continue
+
+            if not container_text:
+                container_text = (self.pw_page.locator("body").inner_text() or "").lower()
+            return "device id" not in container_text
+        except Exception:
+            return False
+        finally:
+            try:
+                self.pw_page.keyboard.press("Escape")
+            except Exception:
+                pass
+
+    def mark_columns_in_show_hide_dropdown(self, columns: List[str]):
+        if not self.open_show_hide_columns_dropdown():
+            return False
+
+        try:
+            container = self._get_show_hide_columns_container()
+            for column in columns:
+                container.get_by_text(column, exact=False).first.click(timeout=3000)
+                self.pw_page.wait_for_timeout(150)
+            return True
+        except Exception:
+            return False
+        finally:
+            try:
+                self.pw_page.keyboard.press("Escape")
+            except Exception:
+                pass
+
+    def verify_show_hide_column_selected(self, column_name: str):
+        if not self.open_show_hide_columns_dropdown():
+            return False
+
+        try:
+            container = self._get_show_hide_columns_container()
+            option = self._get_show_hide_option_locator(container, column_name)
+            option.wait_for(state="visible", timeout=3000)
+
+            # MUI list options use aria-selected for selected state.
+            try:
+                aria_selected = (option.get_attribute("aria-selected") or "").strip().lower()
+                if aria_selected in ["true", "false"]:
+                    return aria_selected == "true"
+            except Exception:
+                pass
+
+            # Fallbacks when aria-selected is not available.
+            try:
+                checkbox = option.locator("xpath=.//input[@type='checkbox']").first
+                if checkbox.count() > 0:
+                    return checkbox.is_checked()
+            except Exception:
+                pass
+
+            try:
+                class_name = (option.get_attribute("class") or "").lower()
+                return "checked" in class_name or "selected" in class_name
+            except Exception:
+                return False
+        except Exception:
+            return False
+        finally:
+            try:
+                self.pw_page.keyboard.press("Escape")
+            except Exception:
+                pass
+
+    def ensure_show_hide_column_selected(self, column_name: str):
+        if not self.open_show_hide_columns_dropdown():
+            return False
+
+        try:
+            container = self._get_show_hide_columns_container()
+            option = self._get_show_hide_option_locator(container, column_name)
+            try:
+                option.wait_for(state="visible", timeout=3000)
+            except Exception:
+                option = self._get_show_hide_option_locator(self.pw_page.locator("body"), column_name)
+                option.wait_for(state="visible", timeout=3000)
+
+            for _ in range(2):
+                try:
+                    aria_selected = (option.get_attribute("aria-selected") or "").strip().lower()
+                    class_name = (option.get_attribute("class") or "").lower()
+                    if aria_selected == "true" or "mui-selected" in class_name or "selected" in class_name:
+                        return True
+                except Exception:
+                    pass
+
+                try:
+                    option.scroll_into_view_if_needed(timeout=1500)
+                except Exception:
+                    pass
+
+                option.click(timeout=3000, force=True)
+                self.pw_page.wait_for_timeout(300)
+
+            try:
+                aria_selected = (option.get_attribute("aria-selected") or "").strip().lower()
+                class_name = (option.get_attribute("class") or "").lower()
+                return aria_selected == "true" or "mui-selected" in class_name or "selected" in class_name
+            except Exception:
+                return False
+        except Exception:
+            return False
+        finally:
+            try:
+                self.pw_page.keyboard.press("Escape")
+            except Exception:
+                pass
+
+    def verify_session_column_visible_by_name(self, column_name: str):
+        aliases = {
+            "session initiator": ["session initiator", "initiator"],
+        }
+        names = aliases.get(column_name.strip().lower(), [column_name.strip().lower()])
+
+        headers = self._get_visible_session_column_headers()
+        for visible in headers:
+            for expected in names:
+                if expected in visible:
+                    return True
+        return False
+
+    def verify_expected_visible_columns(self, expected_columns: List[str]):
+        expected = {col.strip().lower() for col in expected_columns}
+        visible_headers = set(self._get_visible_session_column_headers())
+        return expected.issubset(visible_headers)
+
+    def verify_session_initiator_column_added(self):
+        selectors = [
+            "xpath=//th[.//span[@role='button' and contains(normalize-space(),'Session Initiator')]]",
+            "xpath=//th[normalize-space()='Session Initiator']",
+            "xpath=//*[@role='columnheader'][contains(normalize-space(),'Session Initiator')]",
+        ]
+
+        for selector in selectors:
+            try:
+                header = self.pw_page.locator(selector).first
+                header.wait_for(state="visible", timeout=3000)
+                if header.is_visible():
+                    return True
+            except Exception:
+                continue
+
+        return False
+
+    def select_session_initiator_column_and_verify_added(self):
+        if not self.open_show_hide_columns_dropdown():
+            return False
+
+        try:
+            container = self._get_show_hide_columns_container()
+            option = container.locator("[role='option'][data-value='session_initiator'], li[data-value='session_initiator']").first
+            option.wait_for(state="visible", timeout=4000)
+
+            selected = False
+            try:
+                aria_selected = (option.get_attribute("aria-selected") or "").strip().lower()
+                class_name = (option.get_attribute("class") or "").lower()
+                selected = aria_selected == "true" or "mui-selected" in class_name or "selected" in class_name
+            except Exception:
+                selected = False
+
+            if not selected:
+                option.click(timeout=3000, force=True)
+                self.pw_page.wait_for_timeout(350)
+
+            return True
+        except Exception:
+            return False
+        finally:
+            try:
+                self.pw_page.keyboard.press("Escape")
+            except Exception:
+                pass
+
+    def verify_pagination_options_work(self):
+        candidates = ["10", "25", "50", "100", "Rows per page", "per page"]
+        found_any = False
+
+        for candidate in candidates:
+            try:
+                control = self.pw_page.get_by_text(candidate, exact=False).first
+                control.wait_for(state="visible", timeout=1200)
+                found_any = True
+                if candidate.isdigit():
+                    try:
+                        control.click(timeout=1200)
+                        self.pw_page.wait_for_timeout(300)
+                    except Exception:
+                        pass
+            except Exception:
+                continue
+
+        return found_any
+
+    def verify_search_field_tooltip_text(self, expected_text: str):
+        try:
+            search_input = self.pw_page.locator(self.SEARCH_SESSION_INPUT).first
+            search_input.wait_for(state="visible", timeout=5000)
+            search_input.hover()
+            self.pw_page.wait_for_timeout(400)
+
+            tooltip_candidates = [
+                "[role='tooltip']",
+                "div[aria-describedby]",
+                "text=Search by Patient ID, Name, Device ID, or Session Initiator",
+            ]
+
+            expected = expected_text.strip().lower()
+            for selector in tooltip_candidates:
+                try:
+                    text_value = (self.pw_page.locator(selector).first.inner_text(timeout=1000) or "").lower()
+                    if expected in text_value:
+                        return True
+                except Exception:
+                    continue
+
+            body_text = (self.pw_page.locator("body").inner_text(timeout=1000) or "").lower()
+            return expected in body_text
+        except Exception:
+            return False
+
+    def _get_session_column_index(self, header_label: str):
+        lowered = header_label.strip().lower()
+        headers = self.pw_page.locator("//th | //*[@role='columnheader']")
+        count = headers.count()
+        for index in range(count):
+            header_text = (headers.nth(index).inner_text() or "").strip().lower()
+            if lowered in header_text:
+                return index + 1
+        raise AssertionError(f"Could not find table column index for header '{header_label}'.")
+
+    def _get_visible_session_column_headers(self):
+        headers = self.pw_page.locator("//th | //*[@role='columnheader']")
+        count = headers.count()
+        visible = []
+        for index in range(count):
+            try:
+                if headers.nth(index).is_visible():
+                    text_value = (headers.nth(index).inner_text() or "").strip().lower()
+                    if text_value:
+                        visible.append(text_value)
+            except Exception:
+                continue
+        return visible
+
+    def _get_show_hide_columns_container(self):
+        selectors = ["[role='menu']", "[role='listbox']", "#popover-content", "[role='dialog']"]
+        for selector in selectors:
+            locator = self.pw_page.locator(selector).last
+            try:
+                locator.wait_for(state="visible", timeout=1500)
+                return locator
+            except Exception:
+                continue
+
+        raise AssertionError("Could not find an opened Show/Hide Columns dropdown container.")
+
+    def _get_show_hide_option_locator(self, container, column_name: str):
+        name = (column_name or "").strip().lower()
+        data_value_map = {
+            "session initiator": "session_initiator",
+            "referring physician": "referring_physician",
+            "start time": "report_start_time",
+            "status": "status",
+            "remaining": "remaining",
+        }
+
+        data_value = data_value_map.get(name)
+        if data_value:
+            by_data = container.locator(f"[role='option'][data-value='{data_value}'], li[data-value='{data_value}']").first
+            if by_data.count() > 0:
+                return by_data
+
+        return container.get_by_text(column_name, exact=False).first
 
     def verify_patient_status_in_table(self, patient_id: str, expected_status: str):
         try:

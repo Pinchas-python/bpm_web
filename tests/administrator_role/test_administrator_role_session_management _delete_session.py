@@ -52,9 +52,46 @@ class TestAdministratorRoleSessionManagementDeleteSessionFunctionality(TestBaseO
 		)
 
 	@pytest.mark.usefixtures("before_after_test")
-	def test_delete_session_with_wrong_then_correct_patient_id(self):
+	def test_delete_session_copy_patient_id_and_verify_not_in_session_management(self):
 		session_page = self._login_to_session_management()
-		assert session_page.delete_session_with_wrong_then_correct_patient_id(), (
-			"Delete session flow failed: expected Remove to stay disabled for empty/wrong ID, "
-			"become enabled for correct Patient ID, and remove the session from the table."
+		assert session_page.open_remove_session_dialog_for_any_existing_session(), (
+			"Could not open remove session confirmation window from row action menu."
 		)
+
+		patient_id = session_page.copy_patient_id_from_remove_session_dialog()
+		assert patient_id, "Could not copy Patient ID from remove session popup."
+
+		assert session_page.paste_patient_id_in_remove_session_field(patient_id), (
+			"Could not paste copied Patient ID into remove confirmation field."
+		)
+		assert session_page.click_remove_in_remove_session_dialog(), (
+			"Could not click Remove after entering copied Patient ID."
+		)
+		assert session_page.verify_remove_session_dialog_closed(), (
+			"Remove session confirmation window did not close after clicking Remove."
+		)
+		assert session_page.verify_patient_not_in_session_management(patient_id), (
+			"Deleted patient still appears in Session Management table."
+		)
+
+	@pytest.mark.usefixtures("before_after_test")
+	def test_remove_button_disabled_for_empty_or_wrong_patient_id(self):
+		session_page = self._login_to_session_management()
+		assert session_page.open_remove_session_dialog_for_any_existing_session(), (
+			"Could not open remove session confirmation window from row action menu."
+		)
+
+		patient_id = session_page.copy_patient_id_from_remove_session_dialog()
+		assert patient_id, "Could not copy Patient ID from remove session popup."
+
+		assert session_page.verify_remove_button_disabled_for_empty_patient_id(), (
+			"Remove button should be disabled when Patient ID input is empty."
+		)
+		assert session_page.verify_remove_button_disabled_for_wrong_patient_id(patient_id), (
+			"Remove button should remain disabled when a wrong Patient ID is entered."
+		)
+
+		assert session_page.click_cancel_in_remove_session_dialog(), (
+			"Could not close remove session confirmation window after disabled-button checks."
+		)
+
