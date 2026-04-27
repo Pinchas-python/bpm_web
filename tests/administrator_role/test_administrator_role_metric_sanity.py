@@ -12,11 +12,11 @@ from tests.test_base_online import TestBaseOnline
 
 SESSION_URL_FRAGMENT = "session-management"
 ADMIN_EMAIL = os.getenv("ADMIN_METRIC_EMAIL", "pinimari1@gmail.com")
-ADMIN_PASSWORD = os.getenv("ADMIN_METRIC_PASSWORD", "Pm1234567!")
+ADMIN_PASSWORD = os.getenv("ADMIN_METRIC_PASSWORD", "Pinimari!1")
 SANITY_DEVICE_ID = "1111111"
 
 
-class TestAdministratorRoleSanity(TestBaseOnline):
+class TestAdministratorRoleMetricSanity(TestBaseOnline):
 	def _fill_minimum_required_fields(self, admission: PatientAdmissionPage) -> str:
 		# Minimum valid values for required fields only.
 		patient_id = f"A{int(time.time()) % 10}"
@@ -25,8 +25,10 @@ class TestAdministratorRoleSanity(TestBaseOnline):
 		admission.fill_patient_id(patient_id)
 		admission.fill_device_id(device_id)
 		admission.select_gender_male()
+		admission.select_weight_unit_kg()
+		admission.select_height_unit_cm()
 		admission.fill_weight("22")
-		admission.fill_height("1", "0")
+		admission.fill_height_cm("170")
 		admission.select_first_referring_physician()
 		return patient_id
 

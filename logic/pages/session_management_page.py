@@ -737,6 +737,122 @@ class SessionManagementPage(PageBase):
         except Exception:
             return False
 
+    def switch_to_other_department_from_settings(self):
+        try:
+            if not self._open_choose_department_selector():
+                return False
+
+            options = self._get_department_options()
+            if len(options) < 2:
+                return False
+
+            selected_index = -1
+            for index, option in enumerate(options):
+                if self._is_department_option_selected(option):
+                    selected_index = index
+                    break
+
+            target_index = 1 if selected_index == 0 else 0
+            target_option = options[target_index]
+
+            target_option.scroll_into_view_if_needed(timeout=1500)
+            target_option.click(timeout=4000, force=True)
+            self.pw_page.wait_for_timeout(500)
+
+            # Re-open chooser and verify selected department changed to the target option.
+            if not self._open_choose_department_selector():
+                return False
+
+            refreshed_options = self._get_department_options()
+            if len(refreshed_options) < 2:
+                return False
+
+            try:
+                refreshed_selected = next(
+                    i for i, opt in enumerate(refreshed_options) if self._is_department_option_selected(opt)
+                )
+            except StopIteration:
+                refreshed_selected = -1
+
+            return refreshed_selected == target_index
+        except Exception:
+            return False
+        finally:
+            try:
+                self.pw_page.keyboard.press("Escape")
+            except Exception:
+                pass
+
+    def _open_choose_department_selector(self):
+        try:
+            self.open_settings_menu()
+            self.pw_page.locator(self.SETTINGS_CHOOSE_DEPARTMENT_OPTION).first.wait_for(state="visible", timeout=4000)
+            self.pw_page.locator(self.SETTINGS_CHOOSE_DEPARTMENT_OPTION).first.click(timeout=4000)
+
+            popup_candidates = ["[role='listbox']", "[role='menu']", "[role='dialog']", "#popover-content"]
+            for selector in popup_candidates:
+                try:
+                    popup = self.pw_page.locator(selector).last
+                    popup.wait_for(state="visible", timeout=2000)
+                    return True
+                except Exception:
+                    continue
+            return False
+        except Exception:
+            return False
+
+    def _get_department_options(self):
+        containers = ["[role='listbox']", "[role='menu']", "[role='dialog']", "#popover-content"]
+        for container_selector in containers:
+            try:
+                container = self.pw_page.locator(container_selector).last
+                container.wait_for(state="visible", timeout=1500)
+
+                candidates = [
+                    "[role='option']",
+                    "[role='menuitemradio']",
+                    "li",
+                ]
+                for candidate in candidates:
+                    options = container.locator(candidate)
+                    count = options.count()
+                    if count >= 2:
+                        return [options.nth(i) for i in range(count)]
+            except Exception:
+                continue
+        return []
+
+    def _is_department_option_selected(self, option_locator):
+        try:
+            aria_selected = (option_locator.get_attribute("aria-selected") or "").strip().lower()
+            if aria_selected == "true":
+                return True
+        except Exception:
+            pass
+
+        try:
+            aria_checked = (option_locator.get_attribute("aria-checked") or "").strip().lower()
+            if aria_checked == "true":
+                return True
+        except Exception:
+            pass
+
+        try:
+            class_name = (option_locator.get_attribute("class") or "").lower()
+            if "selected" in class_name or "checked" in class_name or "mui-selected" in class_name:
+                return True
+        except Exception:
+            pass
+
+        try:
+            checkbox = option_locator.locator("xpath=.//input[@type='checkbox' or @type='radio']").first
+            if checkbox.count() > 0 and checkbox.is_checked():
+                return True
+        except Exception:
+            pass
+
+        return False
+
     def click_logout(self):
         self._click_any_visible([self.SETTINGS_LOGOUT_OPTION], timeout=10000)
 

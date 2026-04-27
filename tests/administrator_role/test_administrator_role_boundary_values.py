@@ -44,8 +44,10 @@ class TestAdministratorRoleBoundaryValues(TestBaseOnline):
 		admission.fill_patient_id(patient_id)
 		admission.fill_device_id(device_id)
 		admission.select_gender_male()
+		admission.select_weight_unit_kg()
+		admission.select_height_unit_cm()
 		admission.fill_weight("80")
-		admission.fill_height("5", "10")
+		admission.fill_height_cm("178")
 		admission.select_first_referring_physician()
 
 	def _assert_confirmation_popup_opens(self, admission: PatientAdmissionPage):

@@ -23,6 +23,8 @@ class PatientAdmissionPage(PageBase):
     GENDER_AT_BIRTH_LABEL = "Gender at birth"
     MALE_OPTION_LABEL = "Male"
     FEMALE_OPTION_LABEL = "Female"
+    WEIGHT_KG_OPTION_LABEL = "kg"
+    HEIGHT_CM_OPTION_LABEL = "cm"
     DOB_INPUT = "input[placeholder*='Date of Birth'], input[name*='dob'], input[name*='birth']"
     WEIGHT_INPUT = "input[placeholder*='Weight'], input[name*='weight']"
     WEIGHT_INPUT_NEW = "input[name='weight']"
@@ -140,6 +142,51 @@ class PatientAdmissionPage(PageBase):
     def fill_height(self, feet: str, inches: str = "0"):
         self.pw_page.locator(self.FEET_INPUT).first.fill(feet)
         self.pw_page.locator(self.INCHES_INPUT).first.fill(inches)
+
+    def fill_height_cm(self, value: str):
+        try:
+            self.pw_page.locator("input[name='height']").first.fill(value)
+            return
+        except Exception:
+            pass
+
+        try:
+            self.pw_page.get_by_label("Height", exact=False).first.fill(value)
+            return
+        except Exception:
+            pass
+
+        self.pw_page.locator(self.HEIGHT_INPUT).first.fill(value)
+
+    def select_weight_unit_kg(self):
+        try:
+            self.pw_page.get_by_role("radio", name=self.WEIGHT_KG_OPTION_LABEL, exact=False).first.check()
+            return
+        except Exception:
+            pass
+
+        try:
+            self.pw_page.get_by_label(self.WEIGHT_KG_OPTION_LABEL, exact=False).first.check()
+            return
+        except Exception:
+            pass
+
+        self.pw_page.get_by_text(self.WEIGHT_KG_OPTION_LABEL, exact=False).first.click()
+
+    def select_height_unit_cm(self):
+        try:
+            self.pw_page.get_by_role("radio", name=self.HEIGHT_CM_OPTION_LABEL, exact=False).first.check()
+            return
+        except Exception:
+            pass
+
+        try:
+            self.pw_page.get_by_label(self.HEIGHT_CM_OPTION_LABEL, exact=False).first.check()
+            return
+        except Exception:
+            pass
+
+        self.pw_page.get_by_text(self.HEIGHT_CM_OPTION_LABEL, exact=False).first.click()
 
     def select_gender_male(self):
         try:

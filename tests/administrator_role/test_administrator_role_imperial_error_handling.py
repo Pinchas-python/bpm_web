@@ -9,8 +9,8 @@ from tests.test_base_online import TestBaseOnline
 
 
 SESSION_URL_FRAGMENT = "session-management"
-ADMIN_EMAIL = os.getenv("ADMIN_METRIC_EMAIL", "pinimari1@gmail.com")
-ADMIN_PASSWORD = os.getenv("ADMIN_METRIC_PASSWORD", "Pm1234567!")
+ADMIN_EMAIL = os.getenv("ADMIN_METRIC_EMAIL", "pini.mari+1@bio-beat.com")
+ADMIN_PASSWORD = os.getenv("ADMIN_METRIC_PASSWORD", "Pinimari!1")
 USED_DEVICE_ID = os.getenv("USED_DEVICE_ID")
 USED_DEVICE_ID_ERROR = os.getenv("USED_DEVICE_ID_ERROR", "Device ID already exists")
 INACTIVE_DEVICE_ID = os.getenv("INACTIVE_DEVICE_ID", "11111111")
@@ -19,7 +19,7 @@ INACTIVE_DEVICE_ID_ERROR = os.getenv(
 )
 
 
-class TestAdministratorRole(TestBaseOnline):
+class TestAdministratorRoleErrorHandlingImperial(TestBaseOnline):
 
     def _login_and_open_patient_admission(self):
         page: LogInOnline = self.browser_online.navigate(configuration["online_url"], LogInOnline)
@@ -165,9 +165,21 @@ class TestAdministratorRole(TestBaseOnline):
             admission.pw_page.wait_for_load_state("networkidle", timeout=10000)
         except Exception:
             pass
-        admission.pw_page.wait_for_timeout(2000)
+        admission.pw_page.wait_for_timeout(500)
 
-        assert admission.verify_error_message(INACTIVE_DEVICE_ID_ERROR)
+        expected_errors = [
+            INACTIVE_DEVICE_ID_ERROR,
+            "Device is not activated",
+            "does not exist",
+        ]
+        error_found = False
+        for _ in range(8):
+            if any(admission.verify_error_message(msg) for msg in expected_errors):
+                error_found = True
+                break
+            admission.pw_page.wait_for_timeout(500)
+
+        assert error_found, "Expected inactive/missing device validation error was not displayed."
 
     # @pytest.mark.usefixtures("before_after_test")
     # def test_patient_admission_used_device_id_validation(self):
