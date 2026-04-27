@@ -24,7 +24,7 @@ class TestAdministratorRoleSessionManagementFilteringAndSorting(TestBaseOnline):
 	]
 
 	def _login_to_session_management(self) -> SessionManagementPage:
-		page: LogInOnline = self.browser_online.navigate(configuration["online_url"], LogInOnline)
+		page: LogInOnline = self.browser_online.navigate(configuration["online_url_stage"], LogInOnline)
 		assert page.verify_login_page_opened(), "Login page did not load for administrator scenario."
 
 		page.login(ADMIN_EMAIL, ADMIN_PASSWORD)

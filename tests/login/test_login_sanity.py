@@ -13,7 +13,7 @@ class TestLoginSanity(TestBaseOnline):
     metric_user_password = "Pm1234567!"
 
     def open_login_page(self) -> LogInOnline:
-        page: LogInOnline = self.browser_online.navigate(configuration["online_url"], LogInOnline)
+        page: LogInOnline = self.browser_online.navigate(configuration["online_url_stage"], LogInOnline)
         return page
 
     @pytest.mark.smoke

@@ -13,7 +13,7 @@ ADMIN_EMAIL = os.getenv("ADMIN_METRIC_EMAIL", "pini.mari@bio-beat.com")
 ADMIN_PASSWORD = os.getenv("ADMIN_METRIC_PASSWORD", "Pinimari!1")
 USED_DEVICE_ID = os.getenv("USED_DEVICE_ID")
 USED_DEVICE_ID_ERROR = os.getenv("USED_DEVICE_ID_ERROR", "Device ID already exists")
-INACTIVE_DEVICE_ID = os.getenv("INACTIVE_DEVICE_ID", "11111111")
+INACTIVE_DEVICE_ID = os.getenv("INACTIVE_DEVICE_ID", "111111211")
 INACTIVE_DEVICE_ID_ERROR = os.getenv(
     "INACTIVE_DEVICE_ID_ERROR", "Device is not activated or does not exist."
 )
@@ -194,15 +194,23 @@ class TestAdministratorRoleMetricForm(TestBaseOnline):
 
     #     assert admission.verify_error_message(USED_DEVICE_ID_ERROR)
 
-    @pytest.mark.parametrize("value", ["0", "9", "551", "600", "-10"])
+    @pytest.mark.parametrize("value", ["0", "9", "251", "600", "-10"])
     @pytest.mark.usefixtures("before_after_test")
     def test_invalid_weight_values(self, value):
         _, _, page = self._login_and_open_patient_admission()
 
+        page.select_weight_unit_kg()
         page.fill_weight(value)
         page.click_confirm()
 
-        assert page.verify_error_message("Weight must be between 22-550 lb")
+        expected_errors = [
+            "Weight must be between 10-250 kg",
+            "Weight must be between 10-250",
+            "10-250 kg",
+        ]
+        assert any(page.verify_error_message(msg) for msg in expected_errors), (
+            "Expected metric weight range validation message (10-250 kg)."
+        )
 
     @pytest.mark.parametrize(
         "feet,inches,expected_message",

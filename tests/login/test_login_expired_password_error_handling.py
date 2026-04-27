@@ -8,13 +8,13 @@ from tests.test_base_online import TestBaseOnline
 
 
 class TestLoginExpiredPasswordErrorHandling(TestBaseOnline):
-    expired_user_email = os.getenv("EXPIRED_USER_EMAIL", "pini.mari@bio-beat.com")
-    expired_user_password = os.getenv("EXPIRED_USER_PASSWORD", "Pm1234567!")
+    expired_user_email = os.getenv("EXPIRED_USER_EMAIL", "pini.mari+3@bio-beat.com")
+    expired_user_password = os.getenv("EXPIRED_USER_PASSWORD", "Pinimari!1")
     expired_user_verification_code = os.getenv("EXPIRED_USER_VERIFICATION_CODE", "")
     expired_user_used_password = os.getenv("EXPIRED_USER_USED_PASSWORD", expired_user_password)
 
     def open_login_page(self) -> LogInOnline:
-        return self.browser_online.navigate(configuration["online_url"], LogInOnline)
+        return self.browser_online.navigate(configuration["online_url_stage"], LogInOnline)
 
     def open_expired_password_reset_screen(self):
         page: LogInOnline = self.open_login_page()

@@ -16,7 +16,7 @@ ADMIN_PASSWORD = os.getenv("ADMIN_METRIC_PASSWORD", "Pm1234567!")
 class TestAdministratorRoleScreenFunctionality(TestBaseOnline):
 
 	def _login_and_open_patient_admission(self):
-		page: LogInOnline = self.browser_online.navigate(configuration["online_url"], LogInOnline)
+		page: LogInOnline = self.browser_online.navigate(configuration["online_url_stage"], LogInOnline)
 		assert page.verify_login_page_opened(), "Login page did not load for administrator scenario."
 
 		page.login(ADMIN_EMAIL, ADMIN_PASSWORD)

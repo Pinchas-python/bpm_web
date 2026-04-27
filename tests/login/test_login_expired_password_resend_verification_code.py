@@ -8,11 +8,11 @@ from tests.test_base_online import TestBaseOnline
 
 
 class TestLoginExpiredPasswordResendVerificationCode(TestBaseOnline):
-    expired_user_email = os.getenv("EXPIRED_USER_EMAIL", "pini.mari@bio-beat.com")
-    expired_user_password = os.getenv("EXPIRED_USER_PASSWORD", "Pm1234567!")
+    expired_user_email = os.getenv("EXPIRED_USER_EMAIL", "pini.mari+4@bio-beat.com")
+    expired_user_password = os.getenv("EXPIRED_USER_PASSWORD", "Pinimari!1")
 
     def open_login_page(self) -> LogInOnline:
-        return self.browser_online.navigate(configuration["online_url"], LogInOnline)
+        return self.browser_online.navigate(configuration["online_url_stage"], LogInOnline)
 
     def open_expired_password_reset_screen(self):
         page: LogInOnline = self.open_login_page()

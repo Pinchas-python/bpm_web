@@ -16,7 +16,7 @@ ADMIN_PASSWORD = os.getenv("ADMIN_METRIC_PASSWORD", "Pm1234567!")
 class TestAdministratorRoleBoundaryValues(TestBaseOnline):
 
 	def _login_and_open_patient_admission(self):
-		page: LogInOnline = self.browser_online.navigate(configuration["online_url"], LogInOnline)
+		page: LogInOnline = self.browser_online.navigate(configuration["online_url_stage"], LogInOnline)
 		assert page.verify_login_page_opened(), "Login page did not load for administrator scenario."
 
 		page.login(ADMIN_EMAIL, ADMIN_PASSWORD)
@@ -126,7 +126,10 @@ class TestAdministratorRoleBoundaryValues(TestBaseOnline):
 
 		self._fill_required_valid_values(admission, patient_id, device_id)
 		admission.pw_page.locator(admission.DOB_INPUT).first.fill("01/01/1904")
-		self._assert_confirmation_popup_opens(admission)
+		admission.click_confirm()
+		assert admission.verify_error_message("Patient age is out of range"), (
+			"Expected DOB year 1904 to show 'Patient age is out of range' validation."
+		)
 
 	@pytest.mark.usefixtures("before_after_test")
 	def test_patient_admission_weight_250_kg_boundary(self):
@@ -147,5 +150,5 @@ class TestAdministratorRoleBoundaryValues(TestBaseOnline):
 
 		self._fill_required_valid_values(admission, patient_id, device_id)
 		admission.pw_page.get_by_role("radio", name="cm", exact=False).first.check()
-		admission.pw_page.locator(admission.HEIGHT_INPUT).first.fill("242")
+		admission.fill_height_cm("242")
 		self._assert_confirmation_popup_opens(admission)
