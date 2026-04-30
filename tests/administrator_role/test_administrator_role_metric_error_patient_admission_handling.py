@@ -9,8 +9,8 @@ from tests.test_base_online import TestBaseOnline
 
 
 SESSION_URL_FRAGMENT = "session-management"
-ADMIN_EMAIL = os.getenv("ADMIN_METRIC_EMAIL", "pini.mari@bio-beat.com")
-ADMIN_PASSWORD = os.getenv("ADMIN_METRIC_PASSWORD", "Pinimari!1")
+ADMIN_EMAIL = os.getenv("ADMIN_METRIC_EMAIL")
+ADMIN_PASSWORD = os.getenv("ADMIN_METRIC_PASSWORD")
 USED_DEVICE_ID = os.getenv("USED_DEVICE_ID")
 USED_DEVICE_ID_ERROR = os.getenv("USED_DEVICE_ID_ERROR", "Device ID already exists")
 INACTIVE_DEVICE_ID = os.getenv("INACTIVE_DEVICE_ID", "111111211")

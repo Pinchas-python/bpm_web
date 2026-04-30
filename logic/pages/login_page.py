@@ -62,6 +62,11 @@ class LogInOnline(PageBase):
             return False
         
     def login(self, username, password):
+        if not username or not password:
+            raise ValueError(
+                "Missing login credentials. Set environment variables such as "
+                "ADMIN_METRIC_EMAIL/ADMIN_METRIC_PASSWORD or EXPIRED_USER_EMAIL/EXPIRED_USER_PASSWORD."
+            )
         self.enter_username(username)
         self.enter_password(password)
         self.click_login_button()

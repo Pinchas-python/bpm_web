@@ -47,6 +47,12 @@ jobs:
         env:
           CI: "true"
           GITHUB_ACTIONS: "true"
+          ADMIN_METRIC_EMAIL: ${{ secrets.ADMIN_METRIC_EMAIL }}
+          ADMIN_METRIC_PASSWORD: ${{ secrets.ADMIN_METRIC_PASSWORD }}
+          EXPIRED_USER_EMAIL: ${{ secrets.EXPIRED_USER_EMAIL }}
+          EXPIRED_USER_PASSWORD: ${{ secrets.EXPIRED_USER_PASSWORD }}
+          EXPIRED_USER_VERIFICATION_CODE: ${{ secrets.EXPIRED_USER_VERIFICATION_CODE }}
+          EXPIRED_USER_USED_PASSWORD: ${{ secrets.EXPIRED_USER_USED_PASSWORD }}
         run: |
           mkdir -p test-results
           pytest -vv --tracing=retain-on-failure --alluredir=allure-results --junitxml=test-results/junit.xml --html=test-results/pytest-report.html --self-contained-html

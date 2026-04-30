@@ -8,6 +8,13 @@ __pycache__/
 venv/
 env/
 
+# Local secret files
+.env
+.env.*
+!.env.example
+secrets.ini
+config.local.ini
+
 # Pytest and test artifacts
 .pytest_cache/
 htmlcov/

@@ -9,8 +9,8 @@ from tests.test_base_online import TestBaseOnline
 
 
 SESSION_URL_FRAGMENT = "session-management"
-ADMIN_EMAIL = os.getenv("ADMIN_METRIC_EMAIL", "pinimari1@gmail.com")
-ADMIN_PASSWORD = os.getenv("ADMIN_METRIC_PASSWORD", "Pm1234567!")
+ADMIN_EMAIL = os.getenv("ADMIN_METRIC_EMAIL")
+ADMIN_PASSWORD = os.getenv("ADMIN_METRIC_PASSWORD")
 
 
 class TestAdministratorRoleScreenFunctionality(TestBaseOnline):

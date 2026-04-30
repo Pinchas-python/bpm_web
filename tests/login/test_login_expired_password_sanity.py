@@ -8,8 +8,8 @@ from tests.test_base_online import TestBaseOnline
 
 
 class TestLoginExpiredPasswordSanity(TestBaseOnline):
-    expired_user_email = os.getenv("EXPIRED_USER_EMAIL", "pini.mari@bio-beat.com")
-    expired_user_password = os.getenv("EXPIRED_USER_PASSWORD", "Pm1234567!")
+    expired_user_email = os.getenv("EXPIRED_USER_EMAIL")
+    expired_user_password = os.getenv("EXPIRED_USER_PASSWORD")
 
     def open_login_page(self) -> LogInOnline:
         return self.browser_online.navigate(configuration["online_url"], LogInOnline)

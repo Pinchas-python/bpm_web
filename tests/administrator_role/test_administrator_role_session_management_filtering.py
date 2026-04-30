@@ -7,8 +7,8 @@ from logic.pages.session_management_page import SessionManagementPage
 from tests.test_base_online import TestBaseOnline
 
 
-ADMIN_EMAIL = os.getenv("ADMIN_METRIC_EMAIL", "pinimari1@gmail.com")
-ADMIN_PASSWORD = os.getenv("ADMIN_METRIC_PASSWORD", "Pm1234567!")
+ADMIN_EMAIL = os.getenv("ADMIN_METRIC_EMAIL")
+ADMIN_PASSWORD = os.getenv("ADMIN_METRIC_PASSWORD")
 
 
 class TestAdministratorRoleSessionManagementFilteringAndSorting(TestBaseOnline):

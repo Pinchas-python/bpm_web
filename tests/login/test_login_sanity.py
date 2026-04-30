@@ -1,3 +1,4 @@
+import os
 import pytest
 
 from infra.config.config_provider import configuration
@@ -9,8 +10,12 @@ from tests.test_base_online import TestBaseOnline
 class TestLoginSanity(TestBaseOnline):
     expected_url = "https://bpholter.stage.bio-beat.cloud/session-management"
     expected_client_name = "pinitesting"
-    metric_user_email = "pinimari1@gmail.com"
-    metric_user_password = "Pm1234567!"
+    metric_user_email = os.getenv("ADMIN_METRIC_EMAIL")
+    metric_user_password = os.getenv("ADMIN_METRIC_PASSWORD")
+
+    def _require_login_credentials(self):
+        if not self.metric_user_email or not self.metric_user_password:
+            pytest.skip("Set ADMIN_METRIC_EMAIL and ADMIN_METRIC_PASSWORD to run login sanity tests.")
 
     def open_login_page(self) -> LogInOnline:
         page: LogInOnline = self.browser_online.navigate(configuration["online_url_stage"], LogInOnline)
@@ -28,6 +33,7 @@ class TestLoginSanity(TestBaseOnline):
     @pytest.mark.smoke
     @pytest.mark.usefixtures("before_after_test")
     def test_login_with_valid_credentials_sanity(self):
+        self._require_login_credentials()
         page: LogInOnline = self.open_login_page()
         page.login(self.metric_user_email, self.metric_user_password)
         page.pw_page.wait_for_url(self.expected_url, timeout=15000)
@@ -50,6 +56,7 @@ class TestLoginSanity(TestBaseOnline):
     @pytest.mark.smoke
     @pytest.mark.usefixtures("before_after_test")
     def test_login_and_check_settings_menu_opens_sanity(self):
+        self._require_login_credentials()
         page: LogInOnline = self.open_login_page()
         page.login(self.metric_user_email, self.metric_user_password)
 

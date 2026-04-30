@@ -9,8 +9,8 @@ from tests.test_base_online import TestBaseOnline
 
 
 SESSION_URL_FRAGMENT = "session-management"
-ADMIN_EMAIL = os.getenv("ADMIN_METRIC_EMAIL", "pini.mari+1@bio-beat.com")
-ADMIN_PASSWORD = os.getenv("ADMIN_METRIC_PASSWORD", "Pinimari!1")
+ADMIN_EMAIL = os.getenv("ADMIN_METRIC_EMAIL")
+ADMIN_PASSWORD = os.getenv("ADMIN_METRIC_PASSWORD")
 USED_DEVICE_ID = os.getenv("USED_DEVICE_ID")
 USED_DEVICE_ID_ERROR = os.getenv("USED_DEVICE_ID_ERROR", "Device ID already exists")
 INACTIVE_DEVICE_ID = os.getenv("INACTIVE_DEVICE_ID", "11111111")
@@ -22,6 +22,9 @@ INACTIVE_DEVICE_ID_ERROR = os.getenv(
 class TestAdministratorRoleErrorHandlingImperial(TestBaseOnline):
 
     def _login_and_open_patient_admission(self):
+        if not ADMIN_EMAIL or not ADMIN_PASSWORD:
+            pytest.skip("Set ADMIN_METRIC_EMAIL and ADMIN_METRIC_PASSWORD to run administrator tests.")
+
         page: LogInOnline = self.browser_online.navigate(configuration["online_url"], LogInOnline)
         assert page.verify_login_page_opened(), "Login page did not load for administrator scenario."
 

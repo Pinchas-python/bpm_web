@@ -8,8 +8,8 @@ from tests.test_base_online import TestBaseOnline
 
 
 class TestLoginExpiredPasswordErrorHandling(TestBaseOnline):
-    expired_user_email = os.getenv("EXPIRED_USER_EMAIL", "pini.mari+3@bio-beat.com")
-    expired_user_password = os.getenv("EXPIRED_USER_PASSWORD", "Pinimari!1")
+    expired_user_email = os.getenv("EXPIRED_USER_EMAIL")
+    expired_user_password = os.getenv("EXPIRED_USER_PASSWORD")
     expired_user_verification_code = os.getenv("EXPIRED_USER_VERIFICATION_CODE", "")
     expired_user_used_password = os.getenv("EXPIRED_USER_USED_PASSWORD", expired_user_password)
 
