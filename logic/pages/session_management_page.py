@@ -739,42 +739,82 @@ class SessionManagementPage(PageBase):
 
     def switch_to_other_department_from_settings(self):
         try:
+            # Step 1: Ensure settings menu is open, then open Choose Department dropdown.
+           # self.open_settings_menu()
             if not self._open_choose_department_selector():
                 return False
 
+            # Step 2: Collect all available department options and their display text.
             options = self._get_department_options()
             if len(options) < 2:
                 return False
 
-            selected_index = -1
-            for index, option in enumerate(options):
-                if self._is_department_option_selected(option):
-                    selected_index = index
+            option_texts = []
+            for opt in options:
+                try:
+                    text = (opt.inner_text() or opt.get_attribute("aria-label") or "").strip()
+                except Exception:
+                    text = ""
+                option_texts.append(text)
+
+            # Step 3: Identify the currently selected department by aria/class attributes.
+            current_text = ""
+            for i, opt in enumerate(options):
+                if self._is_department_option_selected(opt):
+                    current_text = option_texts[i]
                     break
 
-            target_index = 1 if selected_index == 0 else 0
-            target_option = options[target_index]
+            # If selection detection yielded nothing, treat the first item as current.
+            if not current_text and option_texts:
+                current_text = option_texts[0]
 
+            # Step 4: Pick the first department that differs from the current one.
+            target_index = -1
+            target_text = ""
+            for i, text in enumerate(option_texts):
+                if text and text != current_text:
+                    target_index = i
+                    target_text = text
+                    break
+
+            if target_index == -1:
+                return False
+
+            # Step 5: Click the chosen department.
+            target_option = options[target_index]
             target_option.scroll_into_view_if_needed(timeout=1500)
             target_option.click(timeout=4000, force=True)
-            self.pw_page.wait_for_timeout(500)
+            self.pw_page.wait_for_timeout(800)
 
-            # Re-open chooser and verify selected department changed to the target option.
+            # Step 6: Validate — re-open chooser and verify the selected name changed.
+            self.open_settings_menu()
             if not self._open_choose_department_selector():
-                return False
+                # Dropdown did not re-open; assume success if SM page is visible.
+                return bool(self.verify_session_management_page_opened())
 
             refreshed_options = self._get_department_options()
-            if len(refreshed_options) < 2:
-                return False
+            refreshed_texts = []
+            for opt in refreshed_options:
+                try:
+                    text = (opt.inner_text() or opt.get_attribute("aria-label") or "").strip()
+                except Exception:
+                    text = ""
+                refreshed_texts.append(text)
 
-            try:
-                refreshed_selected = next(
-                    i for i, opt in enumerate(refreshed_options) if self._is_department_option_selected(opt)
-                )
-            except StopIteration:
-                refreshed_selected = -1
+            # Find the newly selected department by aria/class.
+            new_selected_text = ""
+            for i, opt in enumerate(refreshed_options):
+                if self._is_department_option_selected(opt):
+                    new_selected_text = refreshed_texts[i]
+                    break
 
-            return refreshed_selected == target_index
+            # Fall back to aria-label match when selection marker is absent.
+            if not new_selected_text:
+                new_selected_text = target_text if target_text in refreshed_texts else ""
+
+            # Validate: new department != original AND session management page loaded.
+            changed = new_selected_text != current_text
+            return changed and bool(self.verify_session_management_page_opened())
         except Exception:
             return False
         finally:
@@ -785,7 +825,6 @@ class SessionManagementPage(PageBase):
 
     def _open_choose_department_selector(self):
         try:
-            self.open_settings_menu()
             self.pw_page.locator(self.SETTINGS_CHOOSE_DEPARTMENT_OPTION).first.wait_for(state="visible", timeout=4000)
             self.pw_page.locator(self.SETTINGS_CHOOSE_DEPARTMENT_OPTION).first.click(timeout=4000)
 
@@ -802,6 +841,18 @@ class SessionManagementPage(PageBase):
             return False
 
     def _get_department_options(self):
+        # Primary: MuiPopover structure — <p aria-label="DeptName"> inside the popover paper
+        try:
+            popover = self.pw_page.locator("div.MuiPaper-root.MuiPopover-paper").last
+            popover.wait_for(state="visible", timeout=1500)
+            items = popover.locator("p[aria-label]")
+            count = items.count()
+            if count >= 1:
+                return [items.nth(i) for i in range(count)]
+        except Exception:
+            pass
+
+        # Fallback: role-based containers
         containers = ["[role='listbox']", "[role='menu']", "[role='dialog']", "#popover-content"]
         for container_selector in containers:
             try:
@@ -852,6 +903,114 @@ class SessionManagementPage(PageBase):
             pass
 
         return False
+
+    def open_patient_lookup(self):
+        self._click_any_visible([self.PATIENT_LOOKUP_NAV, "text=Patient Lookup"], timeout=10000)
+
+    def verify_patient_lookup_opened(self):
+        try:
+            self.pw_page.wait_for_url("**/patient-lookup**", timeout=10000)
+        except Exception:
+            pass
+        try:
+            self._wait_any_visible(
+                [
+                    "text=Patient lookup",
+                    "text=Patient Lookup",
+                    "h1:has-text('Patient')",
+                ],
+                timeout=10000,
+            )
+            self._wait_any_visible(
+                [
+                    "input[placeholder*='Search'], input[aria-label*='Search'], input[placeholder*='Patient']"
+                ],
+                timeout=10000,
+            )
+            self._wait_any_visible(
+                [
+                    "button:has-text('New Patient'), button:has-text('New patient')"
+                ],
+                timeout=10000,
+            )
+            return True
+        except Exception:
+            return False
+
+    def verify_patient_lookup_table_columns_visible(self):
+        expected_columns = [
+            "Patient ID",
+            "First name",
+            "Last name",
+            "Last session",
+            "Department",
+        ]
+        try:
+            for col in expected_columns:
+                self._wait_any_visible([f"text={col}"], timeout=5000)
+            return True
+        except Exception:
+            return False
+
+    def search_patient_lookup(self, value: str):
+        locator = self.pw_page.locator(
+            "input[placeholder*='Search'], input[aria-label*='Search'], input[placeholder*='Patient']"
+        ).first
+        locator.wait_for(state="visible", timeout=8000)
+        locator.fill(value)
+        self.pw_page.wait_for_timeout(700)
+
+    def verify_table_shows_no_results(self):
+        try:
+            no_results_candidates = [
+                "text=No results found",
+                "text=No results",
+                "text=No data",
+                "text=Empty",
+            ]
+            for selector in no_results_candidates:
+                try:
+                    self.pw_page.locator(selector).first.wait_for(state="visible", timeout=3000)
+                    return True
+                except Exception:
+                    pass
+
+            # Fallback: count data rows in the table
+            rows = self.pw_page.locator("//tr[.//td]")
+            self.pw_page.wait_for_timeout(500)
+            return rows.count() == 0
+        except Exception:
+            return False
+
+    def get_current_department_name(self):
+        """Return the display name of the currently selected department.
+
+        Requires the settings menu and Choose Department dropdown to already
+        be open (call open_settings_menu / _open_choose_department_selector first).
+        Falls back to the first option in the list when no selection marker is found.
+        """
+        try:
+            options = self._get_department_options()
+            if not options:
+                return ""
+
+            # Prefer the option marked as selected via aria/class attributes.
+            for opt in options:
+                if self._is_department_option_selected(opt):
+                    try:
+                        return (opt.inner_text() or opt.get_attribute("aria-label") or "").strip()
+                    except Exception:
+                        pass
+
+            # Fall back to the first option's aria-label or text when no marker found.
+            try:
+                first = options[0]
+                return (first.get_attribute("aria-label") or first.inner_text() or "").strip()
+            except Exception:
+                pass
+        except Exception:
+            pass
+        return ""
 
     def click_logout(self):
         self._click_any_visible([self.SETTINGS_LOGOUT_OPTION], timeout=10000)

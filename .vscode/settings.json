@@ -41,6 +41,11 @@
         "pytest.ini": "ini",
         ".env": "plaintext"
     },
+
+    // Always show local virtual environment in Explorer
+    "files.exclude": {
+        "**/.venv": false
+    },
     
     // Auto Save
     "files.autoSave": "afterDelay",
