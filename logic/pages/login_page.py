@@ -62,7 +62,8 @@ class LogInOnline(PageBase):
             return False
         
     def login(self, username, password):
-        if not username or not password:
+        # Allow empty-string credentials for negative UI tests; only block missing values.
+        if username is None or password is None:
             raise ValueError(
                 "Missing login credentials. Set environment variables such as "
                 "ADMIN_METRIC_EMAIL/ADMIN_METRIC_PASSWORD or EXPIRED_USER_EMAIL/EXPIRED_USER_PASSWORD."
